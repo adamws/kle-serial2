@@ -7,7 +7,7 @@
   "scripts": {
     "prepublish": "npm run build",
     "build": "tsc",
-    "test": "mocha --reporter spec",
+    "test": "npm run build && mocha --reporter spec",
     "cover": "node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- -R spec"
   },
   "repository": {

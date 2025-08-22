@@ -91,6 +91,18 @@ export module Serial {
     return ret;
   }
 
+  function removeTrailingFalsyValues<T>(list: T[]): T[] {
+    let lastIndex = list.length - 1;
+
+    // Find the last index of a truthy value
+    while (lastIndex >= 0 && !list[lastIndex]) {
+      lastIndex--;
+    }
+
+    // Return a new array with only the truthy values
+    return list.slice(0, lastIndex + 1);
+  }
+
   function deserializeError(msg, data?) {
     throw "Error: " + msg + (data ? ":\n  " + JSON5.stringify(data) : "");
   }
@@ -102,6 +114,7 @@ export module Serial {
     // Initialize with defaults
     let current: Key = new Key();
     let kbd = new Keyboard();
+    let cluster = { x: 0, y: 0 };
     var align = 4;
 
     for (var r = 0; r < rows.length; ++r) {
@@ -130,6 +143,8 @@ export module Serial {
               if (newKey.textColor[i] == newKey.default.textColor)
                 delete newKey.textColor[i];
             }
+            newKey.textSize = removeTrailingFalsyValues(newKey.textSize)
+            newKey.textColor = removeTrailingFalsyValues(newKey.textColor)
 
             // Add the key!
             kbd.keys.push(newKey);
@@ -150,6 +165,16 @@ export module Serial {
               );
             }
             if (item.r != null) current.rotation_angle = item.r;
+            if (item.rx != null) {
+              current.rotation_x = cluster.x = item.rx;
+              current.x = cluster.x;
+              current.y = cluster.y;
+            }
+            if (item.ry != null) {
+              current.rotation_y = cluster.y = item.ry;
+              current.x = cluster.x;
+              current.y = cluster.y;
+            }
             if (item.rx != null) current.rotation_x = item.rx;
             if (item.ry != null) current.rotation_y = item.ry;
             if (item.a != null) align = item.a;
