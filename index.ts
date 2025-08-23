@@ -1,4 +1,3 @@
-import * as JSON5 from "json5";
 
 export class Key {
   color: string = "#cccccc";
@@ -23,7 +22,7 @@ export class Key {
   decal: boolean = false;
   ghost: boolean = false;
   stepped: boolean = false;
-  nub: false = false;
+  nub: boolean = false;
   profile: string = "";
   sm: string = ""; // switch mount
   sb: string = ""; // switch brand
@@ -104,7 +103,7 @@ export module Serial {
   }
 
   function deserializeError(msg, data?) {
-    throw "Error: " + msg + (data ? ":\n  " + JSON5.stringify(data) : "");
+    throw "Error: " + msg + (data ? ":\n  " + JSON.stringify(data) : "");
   }
 
   export function deserialize(rows: Array<any>): Keyboard {
@@ -230,7 +229,212 @@ export module Serial {
     return kbd;
   }
 
-  export function parse(json: string): Keyboard {
-    return deserialize(JSON5.parse(json));
+  // prettier-ignore
+  let reverseLabelMap: Array<Array<number>> = [
+    //0  1  2  3  4  5  6  7  8  9 10 11   // align flags
+    [ 0, 8, 2, 6, 9, 7, 1,10, 3, 4,11, 5], // 0 = no centering
+    [-1, 0,-1,-1, 6,-1,-1, 1,-1, 4,11, 5], // 1 = center x
+    [-1,-1,-1, 0, 8, 2,-1,-1,-1, 4,11, 5], // 2 = center y
+    [-1,-1,-1,-1, 0,-1,-1,-1,-1, 4,11, 5], // 3 = center x & y
+    [ 0, 8, 2, 6, 9, 7, 1,10, 3,-1, 4,-1], // 4 = center front (default)
+    [-1, 0,-1,-1, 6,-1,-1, 1,-1,-1, 4,-1], // 5 = center front & x
+    [-1,-1,-1, 0, 8, 2,-1,-1,-1,-1, 4,-1], // 6 = center front & y
+    [-1,-1,-1,-1, 0,-1,-1,-1,-1,-1, 4,-1], // 7 = center front & x & y
+  ];
+
+  function reorderLabelsKle(labels: any[], align: number): any[] {
+    let ret: any[] = new Array(12).fill(undefined); // Change null to undefined
+    for (let i = 0; i < labels.length; i++) {
+      if (labels[i]) {
+        const index = reverseLabelMap[align][i];
+        if (index === -1) {
+          return [];
+        }
+        ret[index] = labels[i];
+      }
+    }
+    while (ret.length > 0 && ret[ret.length - 1] === undefined) { // Change null to undefined
+      ret.pop();
+    }
+    return ret;
   }
+
+  function findBestLabelAlignment(labels: any[]): [number, any[]] {
+    let results: Record<number, any[]> = {}; // Explicitly type results
+    for (let align = 7; align >= 0; align--) {
+      const ret = reorderLabelsKle(labels, align);
+      if (ret.length > 0) {
+        results[align] = ret;
+      }
+    }
+    if (Object.keys(results).length > 0) {
+      const best: [string, any[]] = Object.entries(results).reduce((a: [string, any[]], b: [string, any[]]) =>
+        a[1].length < b[1].length ? a : b
+      );
+      return [parseInt(best[0]), best[1]];
+    }
+    return [0, []];
+  }
+
+  function textSizeChanged(current: any[], neu: any[]): boolean {
+    current = [...current];
+    neu = [...neu];
+    const fill = (arr) => {
+      const diff = 12 - arr.length;
+      if (diff > 0) {
+        arr.push(...new Array(diff).fill(undefined));
+      }
+    };
+    fill(current);
+    fill(neu);
+    return JSON.stringify(current) !== JSON.stringify(neu);
+  }
+
+  export function serialize(kbd: Keyboard): Array<any> {
+    let rows: any[] = [];
+    let row: any[] = [];
+    let current = new Key();
+    let current_textColor_str: string = "";
+    let current_textSize_arr: number[] = [];
+    let current_alignment = 4;
+    let current_f2 = -1;
+    let cluster = { r: 0, rx: 0, ry: 0 };
+    let new_row = true;
+    current.y -= 1;
+
+    for (const key of kbd.keys) {
+      let props = {};
+
+      const add_prop = (name: string, value: any, def: any) => {
+        if (value !== def) {
+          props[name] = value;
+        }
+        return value;
+      };
+
+      const [alignment, labels] = findBestLabelAlignment(key.labels);
+
+      const new_cluster =
+        key.rotation_angle !== cluster.r ||
+        key.rotation_x !== cluster.rx ||
+        key.rotation_y !== cluster.ry;
+
+      new_row = key.y !== current.y;
+      if (row.length > 0 && (new_cluster || new_row)) {
+        rows.push(row);
+        row = [];
+        new_row = true;
+      }
+
+      if (new_row) {
+        current.y = current.y + 1;
+        if (key.rotation_y !== cluster.ry || key.rotation_x !== cluster.rx) {
+          current.y = key.rotation_y;
+        }
+        current.x = key.rotation_x;
+        cluster.r = key.rotation_angle;
+        cluster.rx = key.rotation_x;
+        cluster.ry = key.rotation_y;
+        new_row = false;
+      }
+
+      current.rotation_angle = add_prop('r', key.rotation_angle, current.rotation_angle);
+      current.rotation_x = add_prop('rx', key.rotation_x, current.rotation_x);
+      current.rotation_y = add_prop('ry', key.rotation_y, current.rotation_y);
+
+      const x_offset = add_prop('x', key.x - current.x, 0);
+      const y_offset = add_prop('y', key.y - current.y, 0);
+      current.x = current.x + key.width + x_offset;
+      current.y = current.y + y_offset;
+
+      current.color = add_prop('c', key.color, current.color);
+
+      let textColor = reorderLabelsKle(key.textColor, alignment);
+      if (textColor.length > 0) {
+        // Add default color to first position only if the default changed for this key
+        // (meaning the original input likely had the default color explicitly in first position)
+        if (!textColor[0] && key.default.textColor !== current.default.textColor) {
+          textColor = [...textColor];  // Create a copy to avoid modifying original
+          textColor[0] = key.default.textColor;
+        }
+
+        let textColorStr = textColor.map(c => c === undefined ? '' : c).join('\n').replace(/\n+$/, '');
+        current_textColor_str = add_prop('t', textColorStr, current_textColor_str);
+        current.default.textColor = key.default.textColor;
+      } else if (key.default.textColor !== current.default.textColor) {
+        current.default.textColor = add_prop('t', key.default.textColor, current.default.textColor);
+      }
+
+      current.ghost = add_prop('g', key.ghost, current.ghost);
+      current.profile = add_prop('p', key.profile, current.profile);
+      current.sm = add_prop('sm', key.sm, current.sm);
+      current.sb = add_prop('sb', key.sb, current.sb);
+      current.st = add_prop('st', key.st, current.st);
+      current_alignment = add_prop('a', alignment, current_alignment);
+      current.default.textSize = add_prop('f', key.default.textSize, current.default.textSize);
+      if (props['f']) {
+        current_textSize_arr = [];
+      }
+
+      let textSize = reorderLabelsKle(key.textSize, alignment);
+      if (textSizeChanged(current_textSize_arr, textSize)) {
+        if (textSize.length === 0) {
+          current.default.textSize = add_prop('f', key.default.textSize, current.default.textSize);
+          current_textSize_arr = [];
+        } else {
+          let optimize = !textSize[0];
+          if (optimize) {
+            for (let i = 2; i < textSize.length; i++) {
+              if (textSize[i] !== textSize[1]) {
+                optimize = false;
+                break;
+              }
+            }
+          }
+          if (optimize) {
+            const f2 = textSize[1];
+            current_f2 = add_prop('f2', f2, current_f2);
+            current_textSize_arr = [undefined, ...new Array(11).fill(f2)];
+          } else {
+            current_textSize_arr = add_prop('fa', textSize, current_textSize_arr);
+          }
+        }
+      }
+
+      add_prop('w', key.width, 1);
+      add_prop('h', key.height, 1);
+      add_prop('w2', key.width2, key.width);
+      add_prop('h2', key.height2, key.height);
+      add_prop('x2', key.x2, 0);
+      add_prop('y2', key.y2, 0);
+      add_prop('l', key.stepped, false);
+      add_prop('n', key.nub, false);
+      add_prop('d', key.decal, false);
+
+      if (Object.keys(props).length > 0) {
+        row.push(props);
+      }
+
+      current.labels = labels;
+      row.push(labels.map(l => l || '').join('\n').replace(/\n+$/, ''));
+    }
+
+    if (row.length > 0) {
+      rows.push(row);
+    }
+
+    const defaultMeta = new KeyboardMetadata();
+    let meta = {};
+    for (const prop in kbd.meta) {
+      if (kbd.meta[prop] !== defaultMeta[prop]) {
+        meta[prop] = kbd.meta[prop];
+      }
+    }
+    if (Object.keys(meta).length > 0) {
+      rows.unshift(meta);
+    }
+
+    return rows;
+  }
+
 }

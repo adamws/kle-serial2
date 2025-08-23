@@ -41,12 +41,12 @@ var keyboard = kle.Serial.deserialize([
   ["Q", "W", "E", "R", "T", "Y"]
 ]);
 
-// or
+// or from JSON string
 
-var keyboard = kle.Serial.parse(`[
-  { name: "Sample", author: "Your Name" },
+var keyboard = kle.Serial.deserialize(JSON.parse(`[
+  { "name": "Sample", "author": "Your Name" },
   ["Q", "W", "E", "R", "T", "Y"]
-]`);
+]`));
 ```
 
 ## API
@@ -60,14 +60,11 @@ kle.Serial.deserialize(rows: Array<any>): Keyboard
 - The first entry is optionally a keyboard metadata object.
 
 ```ts
-kle.Serial.parse(json5: string): Keyboard
+kle.Serial.serialize(kbd: Keyboard): Array<any>
 ```
 
-- This function takes a JSON5-formatted string, parses it, then deserializes the
-  result into a `Keyboard` object.
-- [JSON5](https://json5.org/) is a simplified / lenient version of JSON that is
-  easier for humans to type; in particular, it doesn't require quotes around
-  property names. Any valid JSON string should also be a valid JSON5 string.
+- Given a `Keyboard` object, serializes it back into the KLE array format.
+- Returns an array that can be serialized to JSON and imported back into KLE.
 
 ### Keyboard Objects
 
@@ -227,10 +224,10 @@ In rough order of priority:
      module.
    - That will ensure that the code is correct, and that nothing has been
      missed, as well as guarantee that the two projects are kept in sync.
-2. This library currently only handles _deserialization_; the serialization code
-   still needs to be ported.
-3. More tests (particularly on the serialization side, once it's ported; it's
-   much more error-prone than deserialization).
+2. ~~This library currently only handles _deserialization_; the serialization code
+   still needs to be ported.~~ Both serialization and deserialization are now implemented.
+3. ~~More tests (particularly on the serialization side, once it's ported; it's
+   much more error-prone than deserialization).~~ Comprehensive test coverage has been added for both serialization and deserialization.
 4. Migrate some of the supporting data from KLE to this project, so you don't
    have to look it up elsewhere, e.g.:
    - Switch mount / brand / type definitions.
