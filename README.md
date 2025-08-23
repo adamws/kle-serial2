@@ -25,7 +25,7 @@ so by using it, you can be sure that you are 100% compatible with the editor.
 Install the package via NPM:
 
 ```bash
-npm install @ijprest/kle-serial --save
+npm install git+https://github.com/adamws/kle-serial2.git --save
 ```
 
 ## Usage
