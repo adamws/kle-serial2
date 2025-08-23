@@ -1,10 +1,7 @@
 # kle-serial
 
-[![Build Status](https://travis-ci.org/ijprest/kle-serial.svg?branch=master)](https://travis-ci.org/ijprest/kle-serial)
-[![Coverage Status](https://coveralls.io/repos/github/ijprest/kle-serial/badge.svg?branch=master)](https://coveralls.io/github/ijprest/kle-serial?branch=master)
-[![npm version](https://badge.fury.io/js/%40ijprest%2Fkle-serial.svg)](https://badge.fury.io/js/%40ijprest%2Fkle-serial)
-[![Dependency Status](https://david-dm.org/ijprest/kle-serial.svg)](https://david-dm.org/ijprest/kle-serial)
-[![GitHub](https://img.shields.io/github/license/ijprest/kle-serial.svg)](LICENSE)
+[![CI](https://github.com/adamws/kle-serial2/actions/workflows/ci.yml/badge.svg)](https://github.com/adamws/kle-serial2/actions/workflows/ci.yml)
+[![GitHub](https://img.shields.io/github/license/adamws/kle-serial2.svg)](LICENSE)
 
 This is a [MIT-licensed](LICENSE) javascript library for parsing the serialized
 format used on keyboard-layout-editor.com (KLE) and converting it into something
