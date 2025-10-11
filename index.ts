@@ -39,6 +39,8 @@ export class KeyboardMetadata {
   switchBrand: string = "";
   switchMount: string = "";
   switchType: string = "";
+  // Store custom metadata fields that aren't part of standard KLE format
+  [key: string]: any;
 }
 
 export class Keyboard {
@@ -219,7 +221,8 @@ export module Serial {
             rows[r]
           );
         }
-        for (let prop in kbd.meta) {
+        // Copy all properties from input, including unrecognized ones
+        for (let prop in rows[r]) {
           if (rows[r][prop]) kbd.meta[prop] = rows[r][prop];
         }
       } else {
@@ -425,8 +428,11 @@ export module Serial {
 
     const defaultMeta = new KeyboardMetadata();
     let meta = {};
+    // Export all metadata properties, including unrecognized ones
     for (const prop in kbd.meta) {
-      if (kbd.meta[prop] !== defaultMeta[prop]) {
+      // Only skip if it's a default standard property with default value
+      // Always include custom properties (those not in defaultMeta)
+      if (!(prop in defaultMeta) || kbd.meta[prop] !== defaultMeta[prop]) {
         meta[prop] = kbd.meta[prop];
       }
     }
