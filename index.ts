@@ -186,7 +186,7 @@ export module Serial {
             if (item.f2)
               for (var i = 1; i < 12; ++i) current.textSize[i] = item.f2;
             if (item.fa) current.textSize = item.fa;
-            if (item.p) current.profile = item.p;
+            if ("p" in item) current.profile = item.p;
             if (item.c) current.color = item.c;
             if (item.t) {
               var split = item.t.split("\n");
@@ -205,9 +205,9 @@ export module Serial {
             if (item.l) current.stepped = item.l;
             if (item.d) current.decal = item.d;
             if (item.g != null) current.ghost = item.g;
-            if (item.sm) current.sm = item.sm;
-            if (item.sb) current.sb = item.sb;
-            if (item.st) current.st = item.st;
+            if ("sm" in item) current.sm = item.sm;
+            if ("sb" in item) current.sb = item.sb;
+            if ("st" in item) current.st = item.st;
           }
         }
 

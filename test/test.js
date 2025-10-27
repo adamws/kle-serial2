@@ -184,58 +184,64 @@ describe("deserialization", function() {
       expect(serialized).to.deep.equal(input);
     });
 
-    it("should propagate the ghost flag", function() {
-      var input = [["0", { g: true }, "1", "2"]]
+    it("should propagate and reset the ghost flag", function() {
+      var input = [["0", { g: true }, "1", "2", { g: false }, "3"]]
       var result = kbd.Serial.deserialize(input);
       expect(result).to.be.an.instanceOf(kbd.Keyboard);
-      expect(result.keys).to.have.length(3);
+      expect(result.keys).to.have.length(4);
       expect(result.keys[0].ghost).to.be.false;
       expect(result.keys[1].ghost).to.be.true;
       expect(result.keys[2].ghost).to.be.true;
+      expect(result.keys[3].ghost).to.be.false;
       var serialized = kbd.Serial.serialize(result);
       expect(serialized).to.deep.equal(input);
     });
 
-    it("should propagate the profile flag", function() {
-      var input = [["0", { p: "DSA" }, "1", "2"]]
+    it("should propagate and reset the profile flag", function() {
+      var input = [["0", { p: "DSA" }, "1", "2", { p: "" }, "3"]]
       var result = kbd.Serial.deserialize(input);
       expect(result).to.be.an.instanceOf(kbd.Keyboard);
-      expect(result.keys).to.have.length(3);
+      expect(result.keys).to.have.length(4);
       expect(result.keys[0].profile).to.be.empty;
       expect(result.keys[1].profile).to.equal("DSA");
       expect(result.keys[2].profile).to.equal("DSA");
+      expect(result.keys[3].profile).to.be.empty;
       var serialized = kbd.Serial.serialize(result);
       expect(serialized).to.deep.equal(input);
     });
 
-    it("should propagate switch properties", function() {
-      var input1 = [["1", { sm: "cherry" }, "2", "3"]]
+    it("should propagate and reset switch properties", function() {
+      console.log("test")
+      var input1 = [["1", { sm: "cherry" }, "2", "3", { sm: "" }, "4"]]
       var result1 = kbd.Serial.deserialize(input1);
       expect(result1, "sm").to.be.an.instanceOf(kbd.Keyboard);
-      expect(result1.keys, "sm").to.have.length(3);
+      expect(result1.keys, "sm").to.have.length(4);
       expect(result1.keys[0].sm, "sm_0").to.equal("");
       expect(result1.keys[1].sm, "sm_1").to.equal("cherry");
       expect(result1.keys[2].sm, "sm_2").to.equal("cherry");
+      expect(result1.keys[3].sm, "sm_3").to.equal("");
       var serialized1 = kbd.Serial.serialize(result1);
       expect(serialized1).to.deep.equal(input1);
 
-      var input2 = [["1", { sb: "cherry" }, "2", "3"]]
+      var input2 = [["1", { sb: "cherry" }, "2", "3", { sb: "" }, "4"]]
       var result2 = kbd.Serial.deserialize(input2);
       expect(result2, "sb").to.be.an.instanceOf(kbd.Keyboard);
-      expect(result2.keys, "sb").to.have.length(3);
+      expect(result2.keys, "sb").to.have.length(4);
       expect(result2.keys[0].sb, "sb_0").to.equal("");
       expect(result2.keys[1].sb, "sb_1").to.equal("cherry");
       expect(result2.keys[2].sb, "sb_2").to.equal("cherry");
+      expect(result2.keys[3].sb, "sb_3").to.equal("");
       var serialized2 = kbd.Serial.serialize(result2);
       expect(serialized2).to.deep.equal(input2);
 
-      var input3 = [["1", { st: "MX1A-11Nx" }, "2", "3"]]
+      var input3 = [["1", { st: "MX1A-11Nx" }, "2", "3", { st: "" }, "4"]]
       var result3 = kbd.Serial.deserialize(input3);
       expect(result3, "st").to.be.an.instanceOf(kbd.Keyboard);
-      expect(result3.keys, "st").to.have.length(3);
+      expect(result3.keys, "st").to.have.length(4);
       expect(result3.keys[0].st, "st_0").to.equal("");
       expect(result3.keys[1].st, "st_1").to.equal("MX1A-11Nx");
       expect(result3.keys[2].st, "st_2").to.equal("MX1A-11Nx");
+      expect(result3.keys[3].st, "st_3").to.equal("");
       var serialized3 = kbd.Serial.serialize(result3);
       expect(serialized3).to.deep.equal(input3);
     });
