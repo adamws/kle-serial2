@@ -31,7 +31,7 @@ npm install git+https://github.com/adamws/kle-serial2.git --save
 ## Usage
 
 ```js
-var kle = require("@ijprest/kle-serial");
+var kle = require("@adamws/kle-serial");
 
 var keyboard = kle.Serial.deserialize([
   { name: "Sample", author: "Your Name" },

@@ -1,5 +1,5 @@
 {
-  "name": "@adamws/kle-serial2",
+  "name": "@adamws/kle-serial",
   "version": "0.17.1",
   "description": "Serialization library for keyboard-layout-editor.com",
   "main": "dist/index.js",
