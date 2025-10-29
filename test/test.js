@@ -663,4 +663,28 @@ describe("deserialization", function() {
       expect(serialized).to.deep.equal(input);
     });
   });
+
+});
+
+describe("serialization", function() {
+  it("should not care so much about matching elements", function() {
+    var keyboard = new kbd.Keyboard()
+    var key = new kbd.Key()
+    key.labels = [undefined,undefined,undefined,undefined,"x",undefined,undefined,undefined,undefined,undefined,undefined,undefined]
+    // all these variants should yield same result
+    var textColors = [
+      [undefined,undefined,undefined,undefined,"#ff0000"],
+      [undefined,undefined,undefined,undefined,"#ff0000",undefined,undefined,undefined,undefined,undefined,undefined,undefined],
+      ["#000000","#000000","#000000","#000000","#ff0000","#000000","#000000","#000000","#000000","#000000","#000000","#000000"],
+      [undefined,undefined,undefined,undefined,"#ff0000","#000000","#000000","#000000","#000000","#000000","#000000","#000000"],
+    ]
+    var expected = [[{ t: '#ff0000', a: 7 }, 'x']]
+
+    for (var i = 0; i < textColors.length; ++i) {
+      key.textColor = textColors[i]
+      keyboard.keys = [key]
+      var serialized = kbd.Serial.serialize(keyboard);
+      expect(serialized).to.deep.equal(expected);
+    }
+  });
 });

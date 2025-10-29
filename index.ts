@@ -315,6 +315,15 @@ export module Serial {
         return value;
       };
 
+      // Clean up the data (skipping this step will cause unexpected
+      // serialization if textColor/textSize defined for undefined label)
+      for (var i = 0; i < 12; ++i) {
+        if (!key.labels[i]) {
+          delete key.textSize[i];
+          delete key.textColor[i];
+        }
+      }
+
       const [alignment, labels] = findBestLabelAlignment(key.labels);
 
       const new_cluster =
