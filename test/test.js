@@ -683,8 +683,19 @@ describe("serialization", function() {
     for (var i = 0; i < textColors.length; ++i) {
       key.textColor = textColors[i]
       keyboard.keys = [key]
-      var serialized = kbd.Serial.serialize(keyboard);
-      expect(serialized).to.deep.equal(expected);
+      var serialized = kbd.Serial.serialize(keyboard)
+      expect(serialized).to.deep.equal(expected)
     }
+  });
+
+  it("should properly handle first key at y=-1", function() {
+    var keyboard = new kbd.Keyboard()
+    var key = new kbd.Key()
+    key.labels = "A"
+    key.y = -1
+    keyboard.keys.push(key);
+    var serialized = kbd.Serial.serialize(keyboard)
+    var expected = [[{y:-1}, "A"]];
+    expect(serialized).to.deep.equal(expected)
   });
 });

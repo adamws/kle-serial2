@@ -331,7 +331,10 @@ export module Serial {
         key.rotation_x !== cluster.rx ||
         key.rotation_y !== cluster.ry;
 
-      new_row = key.y !== current.y;
+      // Don't overwrite new_row for the first key to allow proper y normalization
+      if (!(rows.length === 0 && row.length === 0)) {
+        new_row = key.y !== current.y;
+      }
       if (row.length > 0 && (new_cluster || new_row)) {
         rows.push(row);
         row = [];
