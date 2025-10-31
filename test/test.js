@@ -603,8 +603,10 @@ describe("deserialization", function() {
       expect(result.keys[0].textSize[6]).to.equal(4); // B at position 6
       expect(result.keys[1].textSize[0]).to.equal(3); // fa overrides
       expect(result.keys[1].textSize[2]).to.equal(5);
+      // kle-serial2: we do not serialize with f2, unnecessary optimization
       var serialized = kbd.Serial.serialize(result);
-      expect(serialized).to.deep.equal(input);
+      var expected = [[{f:2,fa:[,4,4]}, "A\nB\nC", {fa:[3,,5,6]}, "D\nE\nF\nG"]];
+      expect(serialized).to.deep.equal(expected);
     });
 
     it("should handle profile and nub combinations", function() {

@@ -397,22 +397,7 @@ export module Serial {
           current.default.textSize = add_prop('f', key.default.textSize, current.default.textSize);
           current_textSize_arr = [];
         } else {
-          let optimize = !textSize[0];
-          if (optimize) {
-            for (let i = 2; i < textSize.length; i++) {
-              if (textSize[i] !== textSize[1]) {
-                optimize = false;
-                break;
-              }
-            }
-          }
-          if (optimize) {
-            const f2 = textSize[1];
-            current_f2 = add_prop('f2', f2, current_f2);
-            current_textSize_arr = [undefined, ...new Array(11).fill(f2)];
-          } else {
-            current_textSize_arr = add_prop('fa', textSize, current_textSize_arr);
-          }
+          current_textSize_arr = add_prop('fa', textSize, current_textSize_arr);
         }
       }
 
