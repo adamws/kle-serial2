@@ -211,7 +211,6 @@ describe("deserialization", function() {
     });
 
     it("should propagate and reset switch properties", function() {
-      console.log("test")
       var input1 = [["1", { sm: "cherry" }, "2", "3", { sm: "" }, "4"]]
       var result1 = kbd.Serial.deserialize(input1);
       expect(result1, "sm").to.be.an.instanceOf(kbd.Keyboard);
@@ -268,7 +267,7 @@ describe("deserialization", function() {
       expect(result.keys).to.have.length(1);
       expect(result.keys[0].default.textColor).to.equal("#444444");
       for (var i = 0; i < 12; ++i) {
-        expect(result.keys[0].textColor[i], `[${i}]`).to.be.undefined;
+        expect(result.keys[0].textColor[i], `[${i}]`).to.equal("");
       }
       var serialized = kbd.Serial.serialize(result);
       expect(serialized).to.deep.equal(input);
@@ -334,13 +333,27 @@ describe("deserialization", function() {
       expect(serialized).to.deep.equal(expected);
     });
 
+    it("should not fail if undefined in deserialized", function() {
+      var input = [[{ t: "#ff0000" }, "1", { t: "\n#00ff00" }, "2"]]
+      var result = kbd.Serial.deserialize(input);
+      expect(result).to.be.an.instanceOf(kbd.Keyboard);
+      expect(result.keys).to.have.length(2);
+      result.keys[0].default.textColor = "#000000";
+      result.keys[1].default.textColor = "#000000";
+      result.keys[0].textColor[1] = undefined;
+      result.keys[1].textColor[2] = undefined;
+      var serialized = kbd.Serial.serialize(result);
+      var expected = [["1", "2"]];
+      expect(serialized).to.deep.equal(expected);
+    });
+
     it("should delete values equal to the default", function() {
       var input = [[{ t: "#ff0000" }, "1", { t: "\n#ff0000" }, "\n2", { t: "\n#00ff00" }, "\n3"]]
       var result = kbd.Serial.deserialize(input);
       expect(result).to.be.an.instanceOf(kbd.Keyboard);
       expect(result.keys).to.have.length(3);
       expect(result.keys[1].labels[6]).to.equal("2");
-      expect(result.keys[1].textColor[6]).to.be.undefined;
+      expect(result.keys[1].textColor[6]).to.equal("");
       expect(result.keys[2].labels[6]).to.equal("3");
       expect(result.keys[2].textColor[6]).to.equal("#00ff00");
       // Serialization now uses separate 't' and 'ta' properties
@@ -358,7 +371,7 @@ describe("deserialization", function() {
         expect(result.keys[0].default.textColor).to.equal("#ff0000");
         // All textColor positions should be undefined (using default)
         for (var i = 0; i < 12; ++i) {
-          expect(result.keys[0].textColor[i]).to.be.undefined;
+          expect(result.keys[0].textColor[i]).to.equal("");
         }
         var serialized = kbd.Serial.serialize(result);
         expect(serialized).to.deep.equal(input);
@@ -411,8 +424,8 @@ describe("deserialization", function() {
         expect(result.keys).to.have.length(2);
         expect(result.keys[0].default.textColor).to.equal("#000000");
         expect(result.keys[1].default.textColor).to.equal("#000000");
-        expect(result.keys[0].textColor[0]).to.be.undefined;
-        expect(result.keys[1].textColor[0]).to.be.undefined;
+        expect(result.keys[0].textColor[0]).to.equal("");
+        expect(result.keys[1].textColor[0]).to.equal("");
         // With default alignment (4): KLE pos 1→internal 6
         expect(result.keys[0].textColor[6]).to.equal("#ff0000");
         expect(result.keys[1].textColor[6]).to.equal("#ff0000");
@@ -430,8 +443,8 @@ describe("deserialization", function() {
         expect(result.keys[0].default.textColor).to.equal("#222222");
         // With alignment 0: KLE positions → internal: 0→0, 1→6, 2→2, 3→8
         // Positions with #222222 should be undefined (cleaned up)
-        expect(result.keys[0].textColor[6]).to.be.undefined; // B at internal position 6
-        expect(result.keys[0].textColor[2]).to.be.undefined; // C at internal position 2
+        expect(result.keys[0].textColor[6]).to.equal(""); // B at internal position 6
+        expect(result.keys[0].textColor[2]).to.equal(""); // C at internal position 2
         // Other positions should have their colors
         expect(result.keys[0].textColor[0]).to.equal("#111111"); // A at internal position 0
         expect(result.keys[0].textColor[8]).to.equal("#444444"); // D at internal position 8
@@ -538,7 +551,7 @@ describe("deserialization", function() {
         // textSize is now always a 12-element array, all elements should be undefined when using default
         expect(result.keys[0].textSize, name).to.have.length(12);
         for (var i = 0; i < 12; ++i) {
-          expect(result.keys[0].textSize[i], `${name} [${i}]`).to.be.undefined;
+          expect(result.keys[0].textSize[i], `${name} [${i}]`).to.equal(0);
         }
       }
     });
@@ -557,13 +570,13 @@ describe("deserialization", function() {
           if (result.keys[0].labels[i]) {
             var expected = result.keys[0].labels[i] === "0" ? 1 : 2;
             if (result.keys[0].labels[i] === "0") {
-              expect(result.keys[0].textSize[i], name_i).to.be.undefined;
+              expect(result.keys[0].textSize[i], name_i).to.equal(0);
             } else {
               expect(result.keys[0].textSize[i], name_i).to.equal(2);
             }
           } else {
             // no text at [i]; textSize should be undefined
-            expect(result.keys[0].textSize[i], name_i).to.be.undefined;
+            expect(result.keys[0].textSize[i], name_i).to.equal(0);
           }
         }
       }
@@ -607,7 +620,7 @@ describe("deserialization", function() {
         for (var i = 0; i < 12; ++i) {
           var name_i = `${name} [${i}]`;
           if (result.keys[0].labels[i] === "x") {
-            expect(result.keys[0].textSize[i], name_i).to.be.undefined;
+            expect(result.keys[0].textSize[i], name_i).to.equal(0);
           }
         }
       }
@@ -630,9 +643,22 @@ describe("deserialization", function() {
       expect(result).to.be.an.instanceOf(kbd.Keyboard);
       expect(result.keys).to.have.length(3);
       expect(result.keys[1].labels[6]).to.equal("2");
-      expect(result.keys[1].textSize[6]).to.be.undefined;
+      expect(result.keys[1].textSize[6]).to.equal(0);
       expect(result.keys[2].labels[6]).to.equal("3");
       expect(result.keys[2].textSize[6]).to.equal(2);
+    });
+
+    it("should remove trailing empty values in `fa`", function() {
+      var keyboard = new kbd.Keyboard()
+      var key = new kbd.Key()
+      key.labels[1] = "X"
+      key.labels[4] = "X"
+      key.labels[7] = "X"
+      key.textSize[1] = 4
+      keyboard.keys.push(key);
+      var serialized = kbd.Serial.serialize(keyboard)
+      var expected = [[{"a":5,"fa":[4]},"X\nX\n\n\n\n\nX"]]
+      expect(serialized).to.deep.equal(expected)
     });
   });
 
@@ -723,7 +749,7 @@ describe("deserialization", function() {
       expect(result.keys[1].textSize[2]).to.equal(5);
       // kle-serial2: we do not serialize with f2, unnecessary optimization
       var serialized = kbd.Serial.serialize(result);
-      var expected = [[{f:2,fa:[,4,4]}, "A\nB\nC", {fa:[3,,5,6]}, "D\nE\nF\nG"]];
+      var expected = [[{f:2,fa:[0,4,4]}, "A\nB\nC", {fa:[3,0,5,6]}, "D\nE\nF\nG"]];
       expect(serialized).to.deep.equal(expected);
     });
 
@@ -816,6 +842,24 @@ describe("serialization", function() {
     keyboard.keys.push(key);
     var serialized = kbd.Serial.serialize(keyboard)
     var expected = [[{y:-1}, "A"]];
+    expect(serialized).to.deep.equal(expected)
+  });
+
+  it("should handle nulls and undefined", function() {
+    var keyboard = new kbd.Keyboard()
+    var key = new kbd.Key()
+    key.labels[0] = "A"
+    key.labels[1] = null
+    key.labels[5] = undefined
+    key.textColor[1] = null
+    key.textColor[5] = undefined
+    key.textColor[6] = ""
+    key.textSize[5] = null
+    key.textSize[9] = undefined
+    key.textSize[1] = 0
+    keyboard.keys.push(key);
+    var serialized = kbd.Serial.serialize(keyboard)
+    var expected = [["A"]];
     expect(serialized).to.deep.equal(expected)
   });
 });

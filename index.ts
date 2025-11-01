@@ -4,8 +4,8 @@ export type Array12<T> = [T, T, T, T, T, T, T, T, T, T, T, T];
 export class Key {
   color: string = "#cccccc";
   labels: Array12<string>;
-  textColor: Array12<string | undefined>;
-  textSize: Array12<number | undefined>;
+  textColor: Array12<string>;
+  textSize: Array12<number>;
   default: { textColor: string; textSize: number } = {
     textColor: "#000000",
     textSize: 3
@@ -32,10 +32,10 @@ export class Key {
 
   constructor() {
     // Initialize all arrays to 12 elements
-    // labels are initialized to empty strings, textColor and textSize to undefined
-    this.labels = ["", "", "", "", "", "", "", "", "", "", "", ""];
-    this.textColor = Array(12).fill(undefined) as Array12<string | undefined>;
-    this.textSize = Array(12).fill(undefined) as Array12<number | undefined>;
+    // labels and colors are initialized to empty strings, textColor to 0
+    this.labels = Array(12).fill("") as Array12<string>;
+    this.textColor = Array(12).fill("") as Array12<string>;
+    this.textSize = Array(12).fill(0) as Array12<number>;
   }
 }
 
@@ -165,7 +165,7 @@ export module Serial {
             newKey.height2 =
               newKey.height2 === 0 ? current.height : current.height2;
             newKey.labels = reorderLabelsIn(item.split("\n"), align, "");
-            newKey.textSize = reorderLabelsIn(newKey.textSize, align, undefined);
+            newKey.textSize = reorderLabelsIn(newKey.textSize, align, 0);
 
             // Add the key!
             kbd.keys.push(newKey);
@@ -201,7 +201,7 @@ export module Serial {
             if (item.a != null) align = item.a;
             if (item.f) {
               current.default.textSize = item.f;
-              current.textSize = createArray12(undefined);
+              current.textSize = createArray12(0);
             }
             if (item.f2)
               for (var i = 1; i < 12; ++i) current.textSize[i] = item.f2;
@@ -210,7 +210,7 @@ export module Serial {
             if (item.f || item.f2 || item.fa) {
               for (var j = 0; j < 12; ++j) {
                 if (current.textSize[j] === current.default.textSize) {
-                  current.textSize[j] = undefined;
+                  current.textSize[j] = 0;
                 }
               }
             }
@@ -234,7 +234,7 @@ export module Serial {
                 // Clean up values that equal the default
                 for (var j = 0; j < 12; ++j) {
                   if (current.textColor[j] === current.default.textColor) {
-                    current.textColor[j] = undefined;
+                    current.textColor[j] = "";
                   }
                 }
               }
@@ -242,11 +242,11 @@ export module Serial {
             if (item.ta) {
               // New format: 'ta' is per-label colors (newline-delimited string)
               var taSplit = item.ta.split("\n");
-              current.textColor = reorderLabelsIn(taSplit, align, undefined);
+              current.textColor = reorderLabelsIn(taSplit, align, "");
               // Clean up values that equal the default
               for (var j = 0; j < 12; ++j) {
                 if (current.textColor[j] === current.default.textColor) {
-                  current.textColor[j] = undefined;
+                  current.textColor[j] = "";
                 }
               }
             }
@@ -302,8 +302,8 @@ export module Serial {
     [-1,-1,-1,-1, 0,-1,-1,-1,-1,-1, 4,-1], // 7 = center front & x & y
   ];
 
-  function reorderLabelsKle(labels: any[], align: number): any[] {
-    let ret: any[] = new Array(12).fill(undefined); // Change null to undefined
+  function reorderLabelsKle(labels: any[], align: number, defaultval): any[] {
+    let ret: any[] = new Array(12).fill(defaultval);
     for (let i = 0; i < labels.length; i++) {
       if (labels[i]) {
         const index = reverseLabelMap[align][i];
@@ -313,7 +313,7 @@ export module Serial {
         ret[index] = labels[i];
       }
     }
-    while (ret.length > 0 && ret[ret.length - 1] === undefined) { // Change null to undefined
+    while (ret.length > 0 && ret[ret.length - 1] === defaultval) {
       ret.pop();
     }
     return ret;
@@ -322,7 +322,7 @@ export module Serial {
   function findBestLabelAlignment(labels: any[]): [number, any[]] {
     let results: Record<number, any[]> = {}; // Explicitly type results
     for (let align = 7; align >= 0; align--) {
-      const ret = reorderLabelsKle(labels, align);
+      const ret = reorderLabelsKle(labels, align, "");
       if (ret.length > 0) {
         results[align] = ret;
       }
@@ -362,8 +362,10 @@ export module Serial {
     let new_row = true;
     current.y -= 1;
 
-    for (const key of kbd.keys) {
+    for (const k of kbd.keys) {
       let props = {};
+
+      const key = structuredClone(k)
 
       const add_prop = (name: string, value: any, def: any) => {
         if (value !== def) {
@@ -431,7 +433,7 @@ export module Serial {
       current.color = add_prop('c', key.color, current.color);
 
       // Serialize text color: 't' for default, 'ta' for per-label colors
-      let textColor = reorderLabelsKle(key.textColor, alignment);
+      let textColor = reorderLabelsKle(key.textColor, alignment, "");
 
       // Optimization: if only one color at position 0, treat it as new default
       if (textColor.length === 1 && textColor[0]) {
@@ -442,7 +444,7 @@ export module Serial {
 
         // Output 'ta' when per-label colors exist
         if (textColor.length > 0) {
-          let textColorStr = textColor.map(c => c === undefined ? '' : c).join('\n').replace(/\n+$/, '');
+          let textColorStr = textColor.join('\n').replace(/\n+$/, '');
           current_textColor_str = add_prop('ta', textColorStr, current_textColor_str);
         }
       }
@@ -458,7 +460,11 @@ export module Serial {
         current_textSize_arr = [];
       }
 
-      let textSize = reorderLabelsKle(key.textSize, alignment);
+      let textSize = reorderLabelsKle(key.textSize, alignment, 0);
+      while (textSize.length > 0 && textSize[textSize.length - 1] === 0) {
+        // remove trailing 0 values
+        textSize.pop();
+      }
       if (textSizeChanged(current_textSize_arr, textSize)) {
         if (textSize.length === 0) {
           current.default.textSize = add_prop('f', key.default.textSize, current.default.textSize);
