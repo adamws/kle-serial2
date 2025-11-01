@@ -403,10 +403,11 @@ describe("deserialization", function() {
         expect(expected[a], name).to.not.be.undefined;
         expect(result, name).to.be.an.instanceOf(kbd.Keyboard);
         expect(result.keys, name).to.have.length(1);
-        expect(result.keys[0].labels, name).to.have.length(expected[a].length);
-        expect(result.keys[0].labels, name).to.have.ordered.members(
-          expected[a]
-        );
+        // Labels are now always 12-element arrays with empty strings for undefined positions
+        expect(result.keys[0].labels, name).to.have.length(12);
+        // Convert sparse expected array to 12-element array with empty strings
+        var expectedFull = Array(12).fill("").map((_, i) => expected[a][i] || "");
+        expect(result.keys[0].labels, name).to.deep.equal(expectedFull);
       }
     });
   });
@@ -421,7 +422,11 @@ describe("deserialization", function() {
         expect(result, name).to.be.an.instanceOf(kbd.Keyboard);
         expect(result.keys, name).to.have.length(1);
         expect(result.keys[0].default.textSize, name).to.equal(1);
-        expect(result.keys[0].textSize, name).to.have.length(0);
+        // textSize is now always a 12-element array, all elements should be undefined when using default
+        expect(result.keys[0].textSize, name).to.have.length(12);
+        for (var i = 0; i < 12; ++i) {
+          expect(result.keys[0].textSize[i], `${name} [${i}]`).to.be.undefined;
+        }
       }
     });
 
@@ -507,14 +512,14 @@ describe("deserialization", function() {
 
     it("should delete values equal to the default", function() {
       var result = kbd.Serial.deserialize([
-        [{ f: 1 }, "1", { fa: "\n1" }, "\n2", { fa: "\n2" }, "\n3"]
+        [{ f: 1 }, "1", { fa: [, 1] }, "\n2", { fa: [, 2] }, "\n3"]
       ]);
       expect(result).to.be.an.instanceOf(kbd.Keyboard);
       expect(result.keys).to.have.length(3);
       expect(result.keys[1].labels[6]).to.equal("2");
       expect(result.keys[1].textSize[6]).to.be.undefined;
       expect(result.keys[2].labels[6]).to.equal("3");
-      expect(result.keys[2].textSize[6]).to.equal("2");
+      expect(result.keys[2].textSize[6]).to.equal(2);
     });
   });
 

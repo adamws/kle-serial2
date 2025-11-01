@@ -1,9 +1,11 @@
+// Fixed-length 12-element array type for labels, textColor, and textSize
+type Array12<T> = [T, T, T, T, T, T, T, T, T, T, T, T];
 
 export class Key {
   color: string = "#cccccc";
-  labels: string[] = [];
-  textColor: Array<string | undefined> = [];
-  textSize: Array<number | undefined> = [];
+  labels: Array12<string>;
+  textColor: Array12<string | undefined>;
+  textSize: Array12<number | undefined>;
   default: { textColor: string; textSize: number } = {
     textColor: "#000000",
     textSize: 3
@@ -27,6 +29,14 @@ export class Key {
   sm: string = ""; // switch mount
   sb: string = ""; // switch brand
   st: string = ""; // switch type
+
+  constructor() {
+    // Initialize all arrays to 12 elements
+    // labels are initialized to empty strings, textColor and textSize to undefined
+    this.labels = ["", "", "", "", "", "", "", "", "", "", "", ""];
+    this.textColor = Array(12).fill(undefined) as Array12<string | undefined>;
+    this.textSize = Array(12).fill(undefined) as Array12<number | undefined>;
+  }
 }
 
 export class KeyboardMetadata {
@@ -69,6 +79,11 @@ export module Serial {
     }
   }
 
+  // Helper to create a 12-element array filled with a default value
+  function createArray12<T>(defaultValue: T): Array12<T> {
+    return Array(12).fill(defaultValue) as Array12<T>;
+  }
+
   // Map from serialized label position to normalized position,
   // depending on the alignment flags.
   // prettier-ignore
@@ -84,8 +99,8 @@ export module Serial {
     [ 4,-1,-1,-1,10,-1,-1,-1,-1,-1,-1,-1], // 7 = center front & x & y
   ];
 
-  function reorderLabelsIn(labels, align) {
-    var ret: Array<any> = [];
+  function reorderLabelsIn(labels, align, defaultval) {
+    var ret = createArray12(defaultval);
     for (var i = 0; i < labels.length; ++i) {
       if (labels[i]) ret[labelMap[align][i]] = labels[i];
     }
@@ -130,22 +145,8 @@ export module Serial {
               newKey.width2 === 0 ? current.width : current.width2;
             newKey.height2 =
               newKey.height2 === 0 ? current.height : current.height2;
-            newKey.labels = reorderLabelsIn(item.split("\n"), align);
-            newKey.textSize = reorderLabelsIn(newKey.textSize, align);
-
-            // Clean up the data
-            for (var i = 0; i < 12; ++i) {
-              if (!newKey.labels[i]) {
-                delete newKey.textSize[i];
-                delete newKey.textColor[i];
-              }
-              if (newKey.textSize[i] == newKey.default.textSize)
-                delete newKey.textSize[i];
-              if (newKey.textColor[i] == newKey.default.textColor)
-                delete newKey.textColor[i];
-            }
-            newKey.textSize = removeTrailingFalsyValues(newKey.textSize)
-            newKey.textColor = removeTrailingFalsyValues(newKey.textColor)
+            newKey.labels = reorderLabelsIn(item.split("\n"), align, "");
+            newKey.textSize = reorderLabelsIn(newKey.textSize, align, undefined);
 
             // Add the key!
             kbd.keys.push(newKey);
@@ -181,17 +182,31 @@ export module Serial {
             if (item.a != null) align = item.a;
             if (item.f) {
               current.default.textSize = item.f;
-              current.textSize = [];
+              current.textSize = createArray12(undefined);
             }
             if (item.f2)
               for (var i = 1; i < 12; ++i) current.textSize[i] = item.f2;
             if (item.fa) current.textSize = item.fa;
+            // Clean up textSize values that equal the default to enable serialization optimization
+            if (item.f || item.f2 || item.fa) {
+              for (var j = 0; j < 12; ++j) {
+                if (current.textSize[j] === current.default.textSize) {
+                  current.textSize[j] = undefined;
+                }
+              }
+            }
             if ("p" in item) current.profile = item.p;
             if (item.c) current.color = item.c;
             if (item.t) {
               var split = item.t.split("\n");
               if (split[0] != "") current.default.textColor = split[0];
-              current.textColor = reorderLabelsIn(split, align);
+              current.textColor = reorderLabelsIn(split, align, current.default.textColor);
+              // Clean up values that equal the default to enable serialization optimization
+              for (var j = 0; j < 12; ++j) {
+                if (current.textColor[j] === current.default.textColor) {
+                  current.textColor[j] = undefined;
+                }
+              }
             }
             if (item.x) current.x += item.x;
             if (item.y) current.y += item.y;
@@ -317,10 +332,19 @@ export module Serial {
 
       // Clean up the data (skipping this step will cause unexpected
       // serialization if textColor/textSize defined for undefined label)
+      // Also remove values that equal the default to enable serialization optimization
       for (var i = 0; i < 12; ++i) {
         if (!key.labels[i]) {
           delete key.textSize[i];
           delete key.textColor[i];
+        } else {
+          // Also delete values equal to default to optimize serialization
+          if (key.textSize[i] === key.default.textSize) {
+            delete key.textSize[i];
+          }
+          if (key.textColor[i] === key.default.textColor) {
+            delete key.textColor[i];
+          }
         }
       }
 
@@ -415,7 +439,7 @@ export module Serial {
         row.push(props);
       }
 
-      current.labels = labels;
+      current.labels = labels as Array12<string>;
       row.push(labels.map(l => l || '').join('\n').replace(/\n+$/, ''));
     }
 
