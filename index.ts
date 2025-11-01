@@ -1,5 +1,5 @@
 // Fixed-length 12-element array type for labels, textColor, and textSize
-type Array12<T> = [T, T, T, T, T, T, T, T, T, T, T, T];
+export type Array12<T> = [T, T, T, T, T, T, T, T, T, T, T, T];
 
 export class Key {
   color: string = "#cccccc";
