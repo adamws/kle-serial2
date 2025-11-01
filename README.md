@@ -210,6 +210,55 @@ export class Key {
 - `sm` / `sb` / `st` — the switch _mount_, _brand_, and _type_, overriding the
   default values specified in the keyboard metadata.
 
+## Text Color Format Changes (v0.18+)
+
+Starting with version 0.18, the serialization format for text colors has been updated to be consistent with text sizes, making the format cleaner and less ambiguous.
+
+### New Format
+
+- **`t`** — Default text color (single value)
+  - Example: `{t: "#ff0000"}`
+  - Sets the default color for all labels on subsequent keys
+  - Similar to how `f` sets the default text size
+
+- **`ta`** — Per-label text colors (newline-delimited string)
+  - Example: `{ta: "\n#00ff00\n\n#0000ff"}`
+  - Overrides the default color for specific label positions
+  - Empty positions (empty strings between newlines) use the default color
+  - Similar to how `fa` sets per-label text sizes
+
+**Example**
+
+```javascript
+// Old format (still supported for reading):
+[{t: "#ff0000\n#00ff00"}, "A\nB"]
+
+// New format (used for writing):
+[{t: "#ff0000", ta: "\n#00ff00"}, "A\nB"]
+```
+
+In the new format:
+- `t: "#ff0000"` sets the default color to red
+- `ta: "\n#00ff00"` sets position 1 (B) to green
+- Position 0 (A) uses the default red color
+
+### Backward Compatibility
+
+**Reading:** The library fully supports the legacy format where `t` contained both the default and per-label colors in a single newline-delimited string. When deserializing:
+- If the first value is non-empty, the most common color in the string becomes the default
+- If the first value is empty, the default color is not changed
+
+**Writing:** All serialization now uses the new `t`/`ta` format. This provides:
+- Consistent semantics with text size (`f`/`fa`)
+- Clear separation between default and per-label colors
+- Easier to understand and maintain
+
+**Impact on Legacy Readers:** Older implementations reading layouts serialized with the new format will:
+- Correctly read the `t` property (default color)
+- Ignore the `ta` property (lose per-label color details)
+
+This is an acceptable trade-off for a cleaner, more maintainable format.
+
 ## Future Work
 
 In rough order of priority:

@@ -290,8 +290,10 @@ describe("deserialization", function() {
           `i=${i}`
         ).to.equal(result.keys[0].labels[i]);
       }
+      // Serialization now uses separate 't' and 'ta' properties
       var serialized = kbd.Serial.serialize(result);
-      expect(serialized).to.deep.equal(input);
+      var expected = [[{ a: 0, t: "#111111", ta: "\n#222222\n#333333\n#444444\n#555555\n#666666\n#777777\n#888888\n#999999\n#aaaaaa\n#bbbbbb\n#cccccc" }, labels]];
+      expect(serialized).to.deep.equal(expected);
     });
 
     it("should handle blanks", function() {
@@ -312,8 +314,10 @@ describe("deserialization", function() {
           expect(color, `i=${i}`).to.equal("#111111");
         else expect(color, `i=${i}`).to.equal(result.keys[0].labels[i]);
       }
+      // Serialization now uses separate 't' and 'ta' properties
       var serialized = kbd.Serial.serialize(result);
-      expect(serialized).to.deep.equal(input);
+      var expected = [[{ a: 0, t: "#111111", ta: "\n\n#333333\n#444444\n\n#666666\n\n#888888\n#999999\n#aaaaaa\n#bbbbbb\n#cccccc" }, labels]];
+      expect(serialized).to.deep.equal(expected);
     });
 
     it("should not reset default color if blank", function() {
@@ -339,11 +343,104 @@ describe("deserialization", function() {
       expect(result.keys[1].textColor[6]).to.be.undefined;
       expect(result.keys[2].labels[6]).to.equal("3");
       expect(result.keys[2].textColor[6]).to.equal("#00ff00");
-      // Note: Perfect roundtrip not expected due to KLE spec cleanup behavior
-      // Colors equal to default get removed when there's no corresponding label
+      // Serialization now uses separate 't' and 'ta' properties
       var serialized = kbd.Serial.serialize(result);
-      var expected = [[{ t: "#ff0000" }, "1", "\n2", { t: "\n#00ff00" }, "\n3"]];
+      var expected = [[{ t: "#ff0000" }, "1", "\n2", { ta: "\n#00ff00" }, "\n3"]];
       expect(serialized).to.deep.equal(expected);
+    });
+
+    describe("new 'ta' format", function() {
+      it("should deserialize 't' as default only", function() {
+        var input = [[{ t: "#ff0000" }, "A"]];
+        var result = kbd.Serial.deserialize(input);
+        expect(result).to.be.an.instanceOf(kbd.Keyboard);
+        expect(result.keys).to.have.length(1);
+        expect(result.keys[0].default.textColor).to.equal("#ff0000");
+        // All textColor positions should be undefined (using default)
+        for (var i = 0; i < 12; ++i) {
+          expect(result.keys[0].textColor[i]).to.be.undefined;
+        }
+        var serialized = kbd.Serial.serialize(result);
+        expect(serialized).to.deep.equal(input);
+      });
+
+      it("should deserialize 'ta' as per-label colors without changing default", function() {
+        var input = [[{ t: "#ff0000" }, "A", { ta: "\n#00ff00" }, "\nB"]];
+        var result = kbd.Serial.deserialize(input);
+        expect(result).to.be.an.instanceOf(kbd.Keyboard);
+        expect(result.keys).to.have.length(2);
+        // Default should remain #ff0000 for both keys
+        expect(result.keys[0].default.textColor).to.equal("#ff0000");
+        expect(result.keys[1].default.textColor).to.equal("#ff0000");
+        // Second key should have per-label color at position 6
+        expect(result.keys[1].textColor[6]).to.equal("#00ff00");
+        var serialized = kbd.Serial.serialize(result);
+        expect(serialized).to.deep.equal(input);
+      });
+
+      it("should serialize with both 't' and 'ta' when needed", function() {
+        var keyboard = new kbd.Keyboard();
+        var key = new kbd.Key();
+        key.labels = ["A", "", "", "", "", "", "B", "", "", "", "", ""];
+        key.default.textColor = "#ff0000";
+        key.textColor[6] = "#00ff00"; // Position 6 has different color
+        keyboard.keys.push(key);
+
+        var serialized = kbd.Serial.serialize(keyboard);
+        // Labels get optimized to remove trailing empty positions
+        expect(serialized).to.deep.equal([[{ t: "#ff0000", ta: "\n#00ff00" }, "A\nB"]]);
+      });
+
+      it("should handle roundtrip for new format", function() {
+        var input = [[{ t: "#ff0000", ta: "\n#00ff00\n\n#0000ff" }, "A\nB\n\nD"]];
+        var result = kbd.Serial.deserialize(input);
+        expect(result).to.be.an.instanceOf(kbd.Keyboard);
+        expect(result.keys).to.have.length(1);
+        expect(result.keys[0].default.textColor).to.equal("#ff0000");
+        // With default alignment (4): KLE pos 1→internal 6, KLE pos 3→internal 8
+        expect(result.keys[0].textColor[6]).to.equal("#00ff00"); // B at internal position 6
+        expect(result.keys[0].textColor[8]).to.equal("#0000ff"); // D at internal position 8
+        var serialized = kbd.Serial.serialize(result);
+        expect(serialized).to.deep.equal(input);
+      });
+
+      it("should handle legacy format with most common color", function() {
+        // Legacy: all positions have different colors, #222222 appears twice
+        var input = [[{ a: 0, t: "#111111\n#222222\n#222222\n#444444" }, "A\nB\nC\nD"]];
+        var result = kbd.Serial.deserialize(input);
+        expect(result).to.be.an.instanceOf(kbd.Keyboard);
+        expect(result.keys).to.have.length(1);
+        // #222222 is most common, should become default
+        expect(result.keys[0].default.textColor).to.equal("#222222");
+        // With alignment 0: KLE positions → internal: 0→0, 1→6, 2→2, 3→8
+        // Positions with #222222 should be undefined (cleaned up)
+        expect(result.keys[0].textColor[6]).to.be.undefined; // B at internal position 6
+        expect(result.keys[0].textColor[2]).to.be.undefined; // C at internal position 2
+        // Other positions should have their colors
+        expect(result.keys[0].textColor[0]).to.equal("#111111"); // A at internal position 0
+        expect(result.keys[0].textColor[8]).to.equal("#444444"); // D at internal position 8
+        // Serialization uses new format (alignment may be re-optimized by serializer)
+        var serialized = kbd.Serial.serialize(result);
+        expect(serialized[0][0]).to.have.property('t', '#222222');
+        expect(serialized[0][0]).to.have.property('ta');
+        expect(serialized[0][1]).to.equal("A\nB\nC\nD");
+      });
+
+      it("should handle 'ta' with all alignments", function() {
+        // Test with alignments that support position 0 (all alignments support this)
+        for (var a = 0; a <= 7; ++a) {
+          var name = `a=${a}`;
+          var input = [[{ a: a, t: "#ff0000", ta: "#00ff00" }, "A"]];
+          var result = kbd.Serial.deserialize(input);
+          expect(result, name).to.be.an.instanceOf(kbd.Keyboard);
+          expect(result.keys, name).to.have.length(1);
+          expect(result.keys[0].default.textColor, name).to.equal("#ff0000");
+          // Verify that 'ta' was correctly applied at position 0
+          // Position 0 in KLE maps to different internal positions based on alignment
+          var hasPerLabelColor = result.keys[0].textColor.some(c => c === "#00ff00");
+          expect(hasPerLabelColor, name).to.be.true;
+        }
+      });
     });
   });
 

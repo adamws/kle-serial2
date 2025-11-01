@@ -119,6 +119,25 @@ export module Serial {
     return list.slice(0, lastIndex + 1);
   }
 
+  function findMostCommonColor(colors: string[]): string {
+    // Count occurrences of each non-empty color
+    const counts: Record<string, number> = {};
+    let maxCount = 0;
+    let mostCommon = "";
+
+    for (const color of colors) {
+      if (color && color.trim() !== "") {
+        counts[color] = (counts[color] || 0) + 1;
+        if (counts[color] > maxCount) {
+          maxCount = counts[color];
+          mostCommon = color;
+        }
+      }
+    }
+
+    return mostCommon || "#000000"; // Default to black if no colors found
+  }
+
   function deserializeError(msg, data?) {
     throw "Error: " + msg + (data ? ":\n  " + JSON.stringify(data) : "");
   }
@@ -197,11 +216,34 @@ export module Serial {
             }
             if ("p" in item) current.profile = item.p;
             if (item.c) current.color = item.c;
+            // Handle text color: 't' for default, 'ta' for per-label array
             if (item.t) {
-              var split = item.t.split("\n");
-              if (split[0] != "") current.default.textColor = split[0];
-              current.textColor = reorderLabelsIn(split, align, current.default.textColor);
-              // Clean up values that equal the default to enable serialization optimization
+              if (item.t.indexOf("\n") === -1) {
+                // New format: 't' is just the default color (single value)
+                current.default.textColor = item.t;
+              } else {
+                // Legacy format: 't' contains both default and per-label colors
+                var split = item.t.split("\n");
+                // Set default: if first value is non-empty, use most common color
+                // (to handle cases like "#111111\n#222222\n#222222" where #222222 is most common)
+                // If first value is empty, don't change default (backward compatible)
+                if (split[0] && split[0].trim() !== "") {
+                  current.default.textColor = findMostCommonColor(split);
+                }
+                current.textColor = reorderLabelsIn(split, align, current.default.textColor);
+                // Clean up values that equal the default
+                for (var j = 0; j < 12; ++j) {
+                  if (current.textColor[j] === current.default.textColor) {
+                    current.textColor[j] = undefined;
+                  }
+                }
+              }
+            }
+            if (item.ta) {
+              // New format: 'ta' is per-label colors (newline-delimited string)
+              var taSplit = item.ta.split("\n");
+              current.textColor = reorderLabelsIn(taSplit, align, undefined);
+              // Clean up values that equal the default
               for (var j = 0; j < 12; ++j) {
                 if (current.textColor[j] === current.default.textColor) {
                   current.textColor[j] = undefined;
@@ -388,20 +430,21 @@ export module Serial {
 
       current.color = add_prop('c', key.color, current.color);
 
+      // Serialize text color: 't' for default, 'ta' for per-label colors
       let textColor = reorderLabelsKle(key.textColor, alignment);
-      if (textColor.length > 0) {
-        // Add default color to first position only if the default changed for this key
-        // (meaning the original input likely had the default color explicitly in first position)
-        if (!textColor[0] && key.default.textColor !== current.default.textColor) {
-          textColor = [...textColor];  // Create a copy to avoid modifying original
-          textColor[0] = key.default.textColor;
-        }
 
-        let textColorStr = textColor.map(c => c === undefined ? '' : c).join('\n').replace(/\n+$/, '');
-        current_textColor_str = add_prop('t', textColorStr, current_textColor_str);
-        current.default.textColor = key.default.textColor;
-      } else if (key.default.textColor !== current.default.textColor) {
+      // Optimization: if only one color at position 0, treat it as new default
+      if (textColor.length === 1 && textColor[0]) {
+        current.default.textColor = add_prop('t', textColor[0], current.default.textColor);
+      } else {
+        // Normal case: output 't' when default changes
         current.default.textColor = add_prop('t', key.default.textColor, current.default.textColor);
+
+        // Output 'ta' when per-label colors exist
+        if (textColor.length > 0) {
+          let textColorStr = textColor.map(c => c === undefined ? '' : c).join('\n').replace(/\n+$/, '');
+          current_textColor_str = add_prop('ta', textColorStr, current_textColor_str);
+        }
       }
 
       current.ghost = add_prop('g', key.ghost, current.ghost);
