@@ -404,6 +404,22 @@ describe("deserialization", function() {
         expect(serialized).to.deep.equal(input);
       });
 
+      it("should handle propagation for new format", function() {
+        var input = [[{ ta: "\n#ff0000" },"1\n1", "1\n1"]];
+        var result = kbd.Serial.deserialize(input);
+        expect(result).to.be.an.instanceOf(kbd.Keyboard);
+        expect(result.keys).to.have.length(2);
+        expect(result.keys[0].default.textColor).to.equal("#000000");
+        expect(result.keys[1].default.textColor).to.equal("#000000");
+        expect(result.keys[0].textColor[0]).to.be.undefined;
+        expect(result.keys[1].textColor[0]).to.be.undefined;
+        // With default alignment (4): KLE pos 1→internal 6
+        expect(result.keys[0].textColor[6]).to.equal("#ff0000");
+        expect(result.keys[1].textColor[6]).to.equal("#ff0000");
+        var serialized = kbd.Serial.serialize(result);
+        expect(serialized).to.deep.equal(input);
+      });
+
       it("should handle legacy format with most common color", function() {
         // Legacy: all positions have different colors, #222222 appears twice
         var input = [[{ a: 0, t: "#111111\n#222222\n#222222\n#444444" }, "A\nB\nC\nD"]];
