@@ -1,6 +1,6 @@
 {
   "name": "@adamws/kle-serial",
-  "version": "0.17.1",
+  "version": "0.18.0",
   "description": "Serialization library for editor.keyboard-tools.xyz",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
