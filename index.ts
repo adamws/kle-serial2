@@ -8,7 +8,7 @@ export class Key {
   textSize: Array12<number>;
   default: { textColor: string; textSize: number } = {
     textColor: "#000000",
-    textSize: 3
+    textSize: 3,
   };
   x: number = 0;
   y: number = 0;
@@ -191,7 +191,7 @@ export module Serial {
             ) {
               deserializeError(
                 "rotation can only be specified on the first key in a row",
-                item
+                item,
               );
             }
             if (item.r != null) current.rotation_angle = item.r;
@@ -246,7 +246,11 @@ export module Serial {
                 if (split[0] && split[0].trim() !== "") {
                   current.default.textColor = findMostCommonColor(split);
                 }
-                current.textColor = reorderLabelsIn(split, align, current.default.textColor);
+                current.textColor = reorderLabelsIn(
+                  split,
+                  align,
+                  current.default.textColor,
+                );
                 // Clean up values that equal the default
                 for (var j = 0; j < 12; ++j) {
                   if (current.textColor[j] === current.default.textColor) {
@@ -291,7 +295,7 @@ export module Serial {
         if (r != 0) {
           deserializeError(
             "keyboard metadata must the be first element",
-            rows[r]
+            rows[r],
           );
         }
         // Copy all properties from input, including unrecognized ones
@@ -344,8 +348,9 @@ export module Serial {
       }
     }
     if (Object.keys(results).length > 0) {
-      const best: [string, any[]] = Object.entries(results).reduce((a: [string, any[]], b: [string, any[]]) =>
-        a[1].length < b[1].length ? a : b
+      const best: [string, any[]] = Object.entries(results).reduce(
+        (a: [string, any[]], b: [string, any[]]) =>
+          a[1].length < b[1].length ? a : b,
       );
       return [parseInt(best[0]), best[1]];
     }
@@ -381,7 +386,7 @@ export module Serial {
     for (const k of kbd.keys) {
       let props = {};
 
-      const key = structuredClone(k)
+      const key = structuredClone(k);
 
       const add_prop = (name: string, value: any, def: any) => {
         if (value !== def) {
@@ -437,42 +442,62 @@ export module Serial {
         new_row = false;
       }
 
-      current.rotation_angle = add_prop('r', key.rotation_angle, current.rotation_angle);
-      current.rotation_x = add_prop('rx', key.rotation_x, current.rotation_x);
-      current.rotation_y = add_prop('ry', key.rotation_y, current.rotation_y);
+      current.rotation_angle = add_prop(
+        "r",
+        key.rotation_angle,
+        current.rotation_angle,
+      );
+      current.rotation_x = add_prop("rx", key.rotation_x, current.rotation_x);
+      current.rotation_y = add_prop("ry", key.rotation_y, current.rotation_y);
 
-      const x_offset = add_prop('x', key.x - current.x, 0);
-      const y_offset = add_prop('y', key.y - current.y, 0);
+      const x_offset = add_prop("x", key.x - current.x, 0);
+      const y_offset = add_prop("y", key.y - current.y, 0);
       current.x = current.x + key.width + x_offset;
       current.y = current.y + y_offset;
 
-      current.color = add_prop('c', key.color, current.color);
+      current.color = add_prop("c", key.color, current.color);
 
       // Serialize text color: 't' for default, 'ta' for per-label colors
       let textColor = reorderLabelsKle(key.textColor, alignment, "");
 
       // Optimization: if only one color at position 0, treat it as new default
       if (textColor.length === 1 && textColor[0]) {
-        current.default.textColor = add_prop('t', textColor[0], current.default.textColor);
+        current.default.textColor = add_prop(
+          "t",
+          textColor[0],
+          current.default.textColor,
+        );
       } else {
         // Normal case: output 't' when default changes
-        current.default.textColor = add_prop('t', key.default.textColor, current.default.textColor);
+        current.default.textColor = add_prop(
+          "t",
+          key.default.textColor,
+          current.default.textColor,
+        );
 
         // Output 'ta' when per-label colors exist
         if (textColor.length > 0) {
-          let textColorStr = textColor.join('\n').replace(/\n+$/, '');
-          current_textColor_str = add_prop('ta', textColorStr, current_textColor_str);
+          let textColorStr = textColor.join("\n").replace(/\n+$/, "");
+          current_textColor_str = add_prop(
+            "ta",
+            textColorStr,
+            current_textColor_str,
+          );
         }
       }
 
-      current.ghost = add_prop('g', key.ghost, current.ghost);
-      current.profile = add_prop('p', key.profile, current.profile);
-      current.sm = add_prop('sm', key.sm, current.sm);
-      current.sb = add_prop('sb', key.sb, current.sb);
-      current.st = add_prop('st', key.st, current.st);
-      current_alignment = add_prop('a', alignment, current_alignment);
-      current.default.textSize = add_prop('f', key.default.textSize, current.default.textSize);
-      if (props['f']) {
+      current.ghost = add_prop("g", key.ghost, current.ghost);
+      current.profile = add_prop("p", key.profile, current.profile);
+      current.sm = add_prop("sm", key.sm, current.sm);
+      current.sb = add_prop("sb", key.sb, current.sb);
+      current.st = add_prop("st", key.st, current.st);
+      current_alignment = add_prop("a", alignment, current_alignment);
+      current.default.textSize = add_prop(
+        "f",
+        key.default.textSize,
+        current.default.textSize,
+      );
+      if (props["f"]) {
         current_textSize_arr = [];
       }
 
@@ -483,29 +508,38 @@ export module Serial {
       }
       if (textSizeChanged(current_textSize_arr, textSize)) {
         if (textSize.length === 0) {
-          current.default.textSize = add_prop('f', key.default.textSize, current.default.textSize);
+          current.default.textSize = add_prop(
+            "f",
+            key.default.textSize,
+            current.default.textSize,
+          );
           current_textSize_arr = [];
         } else {
-          current_textSize_arr = add_prop('fa', textSize, current_textSize_arr);
+          current_textSize_arr = add_prop("fa", textSize, current_textSize_arr);
         }
       }
 
-      add_prop('w', key.width, 1);
-      add_prop('h', key.height, 1);
-      add_prop('w2', key.width2, key.width);
-      add_prop('h2', key.height2, key.height);
-      add_prop('x2', key.x2, 0);
-      add_prop('y2', key.y2, 0);
-      add_prop('l', key.stepped, false);
-      add_prop('n', key.nub, false);
-      add_prop('d', key.decal, false);
+      add_prop("w", key.width, 1);
+      add_prop("h", key.height, 1);
+      add_prop("w2", key.width2, key.width);
+      add_prop("h2", key.height2, key.height);
+      add_prop("x2", key.x2, 0);
+      add_prop("y2", key.y2, 0);
+      add_prop("l", key.stepped, false);
+      add_prop("n", key.nub, false);
+      add_prop("d", key.decal, false);
 
       if (Object.keys(props).length > 0) {
         row.push(props);
       }
 
       current.labels = labels as Array12<string>;
-      row.push(labels.map(l => l || '').join('\n').replace(/\n+$/, ''));
+      row.push(
+        labels
+          .map((l) => l || "")
+          .join("\n")
+          .replace(/\n+$/, ""),
+      );
     }
 
     if (row.length > 0) {
@@ -528,5 +562,4 @@ export module Serial {
 
     return rows;
   }
-
 }

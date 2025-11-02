@@ -8,7 +8,8 @@
     "prepublish": "npm run build",
     "build": "tsc",
     "test": "npm run build && mocha --reporter spec",
-    "cover": "node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- -R spec"
+    "cover": "node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- -R spec",
+    "format": "prettier --log-level silent --write index.ts test/"
   },
   "repository": {
     "type": "git",
@@ -34,6 +35,7 @@
     "istanbul": "^0.4.5",
     "mocha": "^11.7.1",
     "mocha-lcov-reporter": "^1.3.0",
+    "prettier": "^3.6.2",
     "typescript": "^5.9.2"
   }
 }
