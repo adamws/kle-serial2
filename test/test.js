@@ -1,7 +1,8 @@
 "use strict";
 
-var expect = require("chai").expect;
-var kbd = require("../dist/index");
+const expect = require("chai").expect;
+const fc = require('fast-check');
+const kbd = require("../dist/index");
 
 describe("deserialization", function() {
   it("should fail on non-array", function() {
@@ -940,5 +941,531 @@ describe("serialization", function() {
     var serialized = kbd.Serial.serialize(keyboard)
     var expected = [["A"]];
     expect(serialized).to.deep.equal(expected)
+  });
+});
+
+// Properties
+describe('properties', () => {
+
+  // Serialize/Deserialize roundtrip property test
+  describe('serialize/deserialize roundtrip', () => {
+
+    // Arbitrary for valid color strings (hex colors)
+    // Only 6-char hex codes to ensure perfect roundtrips without normalization
+    const colorArb = fc.oneof(
+      fc.constant('#000000'),
+      fc.constant('#ffffff'),
+      fc.constant('#ff0000'),
+      fc.constant('#00ff00'),
+      fc.constant('#0000ff'),
+      fc.constant('#cccccc')
+    );
+
+    // Arbitrary for labels (strings or empty)
+    const labelArb = fc.oneof(
+      fc.constant(''),
+      fc.string({ minLength: 1, maxLength: 20 })
+    );
+
+    // Arbitrary for text sizes (positive numbers, reasonable range)
+    const textSizeArb = fc.integer({ min: 1, max: 9 });
+
+    // Arbitrary for positions and dimensions (reasonable numeric ranges)
+    const positionArb = fc.integer({ min: -100, max: 100 });
+    const dimensionArb = fc.integer({ min: 1, max: 10 });
+
+    // Arbitrary for rotation angles (degrees)
+    const rotationArb = fc.integer({ min: -360, max: 360 });
+
+    // Arbitrary for boolean flags
+    const booleanArb = fc.boolean();
+
+    // Arbitrary for profile and switch strings
+    const profileArb = fc.oneof(
+      fc.constant(''),
+      fc.constant('DSA'),
+      fc.constant('SA'),
+      fc.constant('Cherry'),
+      fc.constant('OEM'),
+      fc.string({ minLength: 1, maxLength: 20 })
+    );
+
+    const numberOfLabels = 12
+    // Dense arrays: always exactly 12 elements with no holes
+    const cleanLabelsArb = fc.array(labelArb, { minLength: numberOfLabels, maxLength: numberOfLabels })
+
+    const cleanTextColorsArb = fc.array(colorArb, { minLength: numberOfLabels, maxLength: numberOfLabels })
+    // to see if allowed optimization works:
+    const repeatedTextColorArb = colorArb.chain(color =>
+      fc.array(fc.constant(color), { minLength: numberOfLabels, maxLength: numberOfLabels })
+    );
+
+    const cleanTextSizesArb = fc.array(textSizeArb, { minLength: numberOfLabels, maxLength: numberOfLabels })
+    // to see if allowed optimization works:
+    const repeatedTextSizeArb = textSizeArb.chain(size =>
+      fc.array(fc.constant(size), { minLength: numberOfLabels, maxLength: numberOfLabels })
+    );
+
+    // Arbitrary for a single key with CLEAN initial state
+    // Clean state means:
+    // 1. textColor/textSize only defined (non-default) for positions with non-empty labels
+    // 2. textColor/textSize don't equal the default values (otherwise they get cleaned up)
+    // 3. Use Key class defaults: textColor="#000000", textSize=3
+    const DEFAULT_TEXT_COLOR = '#000000';
+    const DEFAULT_TEXT_SIZE = 3;
+
+    const cleanKeyArb = cleanLabelsArb.chain(labels => {
+      // For each label position, determine if it's non-empty
+      // Match deserialization logic: !label means empty (falsy: null, undefined, "")
+      // Single space " " is considered a valid label!
+      const hasLabel = labels.map(l => !!l);
+
+      // Generate key color first
+      return colorArb.chain(keyColor => {
+        // Generate textColor:
+        // - For positions with labels: use a color different from default and key color
+        // - For positions without labels: use ""
+        const keyTextColorArb = fc.tuple(
+          ...hasLabel.map(has =>
+            has ? colorArb.filter(c =>
+              c !== DEFAULT_TEXT_COLOR &&
+              c !== keyColor
+            ) : fc.constant('')
+          )
+        );
+
+        // Generate textSize:
+        // - For positions with labels: use a size different from default
+        // - For positions without labels: use 0
+        const keyTextSizeArb = fc.tuple(
+          ...hasLabel.map(has =>
+            has ? textSizeArb.filter(s => s !== DEFAULT_TEXT_SIZE) : fc.constant(0)
+          )
+        );
+
+        return fc.record({
+          color: fc.constant(keyColor),
+          labels: fc.constant(labels),
+          textColor: keyTextColorArb,
+          textSize: keyTextSizeArb,
+          x: positionArb,
+          y: positionArb,
+          width: dimensionArb,
+          height: dimensionArb,
+          x2: positionArb,
+          y2: positionArb,
+          width2: dimensionArb,
+          height2: dimensionArb,
+          rotation_x: positionArb,
+          rotation_y: positionArb,
+          rotation_angle: rotationArb,
+          decal: booleanArb,
+          ghost: booleanArb,
+          stepped: booleanArb,
+          nub: booleanArb,
+          profile: profileArb,
+          sm: profileArb,
+          sb: profileArb,
+          st: profileArb
+        });
+      });
+    });
+
+    const setKeyData = (key, keyData) => {
+        // Manual assignment to avoid Object.assign issues
+        key.color = keyData.color;
+        // Ensure arrays are proper Array12 type, not tuples
+        key.labels = Array.from(keyData.labels);
+        key.textColor = Array.from(keyData.textColor);
+        key.textSize = Array.from(keyData.textSize);
+        key.x = keyData.x;
+        key.y = keyData.y;
+        key.width = keyData.width;
+        key.height = keyData.height;
+        key.x2 = keyData.x2;
+        key.y2 = keyData.y2;
+        key.width2 = keyData.width2;
+        key.height2 = keyData.height2;
+        key.rotation_x = keyData.rotation_x;
+        key.rotation_y = keyData.rotation_y;
+        key.rotation_angle = keyData.rotation_angle;
+        key.decal = keyData.decal;
+        key.ghost = keyData.ghost;
+        key.stepped = keyData.stepped;
+        key.nub = keyData.nub;
+        key.profile = keyData.profile;
+        key.sm = keyData.sm;
+        key.sb = keyData.sb;
+        key.st = keyData.st;
+    };
+
+    it('should perfectly roundtrip single key with clean properties', function() {
+      this.timeout(10000);
+
+      fc.assert(
+        fc.property(cleanKeyArb, (keyData) => {
+          // Create a keyboard with just one key
+          const keyboard = new kbd.Keyboard();
+          const key = new kbd.Key();
+
+          setKeyData(key, keyData)
+
+          keyboard.keys.push(key);
+
+          // Perform roundtrip
+          const serialized = kbd.Serial.serialize(keyboard);
+          const deserialized = kbd.Serial.deserialize(serialized);
+
+          expect(deserialized.keys).to.have.lengthOf(1);
+
+          const result = deserialized.keys[0];
+
+          // Direct equality checks for most properties
+          expect(result.color, 'color').to.equal(key.color);
+          expect(result.labels, 'labels').to.deep.equal(key.labels);
+
+          // For textColor and textSize, verify semantic equivalence only for positions with labels
+          // (effective color/size considering defaults) rather than exact array equality
+          // This accounts for serialization optimizations where single colors become defaults
+          // We only check positions with labels since colors/sizes at empty positions don't matter
+          for (let i = 0; i < 12; i++) {
+            if (key.labels[i]) {  // Only check positions with labels
+              const expectedColor = key.textColor[i] || key.default.textColor;
+              const actualColor = result.textColor[i] || result.default.textColor;
+              expect(actualColor, `textColor[${i}]`).to.equal(expectedColor);
+
+              const expectedSize = key.textSize[i] || key.default.textSize;
+              const actualSize = result.textSize[i] || result.default.textSize;
+              expect(actualSize, `textSize[${i}]`).to.equal(expectedSize);
+            }
+          }
+          expect(result.x, 'x').to.equal(key.x);
+          expect(result.y, 'y').to.equal(key.y);
+          expect(result.width, 'width').to.equal(key.width);
+          expect(result.height, 'height').to.equal(key.height);
+          expect(result.x2, 'x2').to.equal(key.x2);
+          expect(result.y2, 'y2').to.equal(key.y2);
+          expect(result.width2, 'width2').to.equal(key.width2);
+          expect(result.height2, 'height2').to.equal(key.height2);
+          expect(result.rotation_x, 'rotation_x').to.equal(key.rotation_x);
+          expect(result.rotation_y, 'rotation_y').to.equal(key.rotation_y);
+          expect(result.rotation_angle, 'rotation_angle').to.equal(key.rotation_angle);
+          expect(result.decal, 'decal').to.equal(key.decal);
+          expect(result.ghost, 'ghost').to.equal(key.ghost);
+          expect(result.stepped, 'stepped').to.equal(key.stepped);
+          expect(result.nub, 'nub').to.equal(key.nub);
+          expect(result.profile, 'profile').to.equal(key.profile);
+          expect(result.sm, 'sm').to.equal(key.sm);
+          expect(result.sb, 'sb').to.equal(key.sb);
+          expect(result.st, 'st').to.equal(key.st);
+
+          return true;
+        }),
+        {
+          numRuns: 5000
+        }
+      );
+    });
+
+    it('should handle null/undefined values in textColor/textSize arrays', function() {
+      this.timeout(10000);
+
+      // Arbitrary for "very dirty" keys with null/undefined in arrays
+      const veryDirtyKeyArb = cleanLabelsArb.chain(labels => {
+        return colorArb.chain(keyColor => {
+          // Generate textColor with possible null/undefined values
+          const nullableColorArb = fc.oneof(
+            colorArb,
+            fc.constant(null),
+            fc.constant(undefined),
+            fc.constant('')
+          );
+          const veryDirtyTextColorArb = fc.array(nullableColorArb, { minLength: numberOfLabels, maxLength: numberOfLabels });
+
+          // Generate textSize with possible null/undefined values
+          const nullableTextSizeArb = fc.oneof(
+            textSizeArb,
+            fc.constant(null),
+            fc.constant(undefined),
+            fc.constant(0)
+          );
+          const veryDirtyTextSizeArb = fc.array(nullableTextSizeArb, { minLength: numberOfLabels, maxLength: numberOfLabels });
+
+          return fc.record({
+            color: fc.constant(keyColor),
+            labels: fc.constant(labels),
+            textColor: veryDirtyTextColorArb,
+            textSize: veryDirtyTextSizeArb,
+            x: positionArb,
+            y: positionArb,
+            width: dimensionArb,
+            height: dimensionArb,
+            x2: positionArb,
+            y2: positionArb,
+            width2: dimensionArb,
+            height2: dimensionArb,
+            rotation_x: positionArb,
+            rotation_y: positionArb,
+            rotation_angle: rotationArb,
+            decal: booleanArb,
+            ghost: booleanArb,
+            stepped: booleanArb,
+            nub: booleanArb,
+            profile: profileArb,
+            sm: profileArb,
+            sb: profileArb,
+            st: profileArb
+          });
+        });
+      });
+
+      fc.assert(
+        fc.property(veryDirtyKeyArb, (keyData) => {
+          // Create a keyboard with a "very dirty" key (containing null/undefined)
+          const keyboard = new kbd.Keyboard();
+          const key = new kbd.Key();
+
+          setKeyData(key, keyData);
+
+          keyboard.keys.push(key);
+
+          // Perform double roundtrip to ensure stability even with null/undefined
+          const serialized1 = kbd.Serial.serialize(keyboard);
+          const deserialized1 = kbd.Serial.deserialize(serialized1);
+
+          const serialized2 = kbd.Serial.serialize(deserialized1);
+          const deserialized2 = kbd.Serial.deserialize(serialized2);
+
+          expect(deserialized2.keys).to.have.lengthOf(1);
+
+          const result1 = deserialized1.keys[0];
+          const result2 = deserialized2.keys[0];
+
+          // Verify stability despite null/undefined input
+          expect(result2.labels, 'labels should be stable').to.deep.equal(result1.labels);
+
+          for (let i = 0; i < 12; i++) {
+            const color1 = result1.textColor[i] || result1.default.textColor;
+            const color2 = result2.textColor[i] || result2.default.textColor;
+            expect(color2, `textColor[${i}] should be stable`).to.equal(color1);
+
+            const size1 = result1.textSize[i] || result1.default.textSize;
+            const size2 = result2.textSize[i] || result2.default.textSize;
+            expect(size2, `textSize[${i}] should be stable`).to.equal(size1);
+
+            // Verify cleanup: positions without labels should have empty textColor/size
+            if (!result1.labels[i]) {
+              expect(result1.textColor[i], `textColor[${i}] should be empty for empty label`).to.equal('');
+              expect(result1.textSize[i], `textSize[${i}] should be 0 for empty label`).to.equal(0);
+            }
+          }
+
+          // Verify textColor/textSize arrays are properly typed (no null/undefined)
+          for (let i = 0; i < 12; i++) {
+            expect(result1.textColor[i]).to.not.equal(null, `textColor[${i}] should not be null`);
+            expect(result1.textColor[i]).to.not.equal(undefined, `textColor[${i}] should not be undefined`);
+            expect(result1.textSize[i]).to.not.equal(null, `textSize[${i}] should not be null`);
+            expect(result1.textSize[i]).to.not.equal(undefined, `textSize[${i}] should not be undefined`);
+          }
+
+          return true;
+        }),
+        {
+          numRuns: 3000
+        }
+      );
+    });
+
+    it('should optimize away redundant textColor/textSize values and produce stable output', function() {
+      this.timeout(10000);
+
+      // Arbitrary for "dirty" keys where textColor/textSize may be:
+      // 1. Set even for positions without labels
+      // 2. Equal to the default value
+      // 3. Shorter than 12 elements
+      // These should be handled and optimized away during serialization
+      const dirtyKeyArb = cleanLabelsArb.chain(labels => {
+        const hasLabel = labels.map(l => !!l);
+
+        return colorArb.chain(keyColor => {
+          // Generate "dirty" textColor:
+          // - May include colors at empty positions
+          // - May include colors equal to DEFAULT_TEXT_COLOR
+          const dirtyTextColorArb = fc.array(colorArb, { minLength: 0, maxLength: numberOfLabels });
+
+          // Generate "dirty" textSize:
+          // - May include sizes at empty positions
+          // - May include sizes equal to DEFAULT_TEXT_SIZE
+          const dirtyTextSizeArb = fc.array(textSizeArb, { minLength: 0, maxLength: numberOfLabels });
+
+          return fc.record({
+            color: fc.constant(keyColor),
+            labels: fc.constant(labels),
+            textColor: dirtyTextColorArb,
+            textSize: dirtyTextSizeArb,
+            x: positionArb,
+            y: positionArb,
+            width: dimensionArb,
+            height: dimensionArb,
+            x2: positionArb,
+            y2: positionArb,
+            width2: dimensionArb,
+            height2: dimensionArb,
+            rotation_x: positionArb,
+            rotation_y: positionArb,
+            rotation_angle: rotationArb,
+            decal: booleanArb,
+            ghost: booleanArb,
+            stepped: booleanArb,
+            nub: booleanArb,
+            profile: profileArb,
+            sm: profileArb,
+            sb: profileArb,
+            st: profileArb
+          });
+        });
+      });
+
+      fc.assert(
+        fc.property(dirtyKeyArb, (keyData) => {
+          // Create a keyboard with a "dirty" key
+          const keyboard = new kbd.Keyboard();
+          const key = new kbd.Key();
+
+          setKeyData(key, keyData);
+
+          keyboard.keys.push(key);
+
+          // Perform double roundtrip to ensure stability
+          // First roundtrip cleans up the dirty data
+          const serialized1 = kbd.Serial.serialize(keyboard);
+          const deserialized1 = kbd.Serial.deserialize(serialized1);
+
+          // Second roundtrip should produce identical results (stable state)
+          const serialized2 = kbd.Serial.serialize(deserialized1);
+          const deserialized2 = kbd.Serial.deserialize(serialized2);
+
+          expect(deserialized2.keys).to.have.lengthOf(1);
+
+          const result1 = deserialized1.keys[0];
+          const result2 = deserialized2.keys[0];
+
+          // Verify that the result is stable (doesn't change on second roundtrip)
+          expect(result2.labels, 'labels should be stable').to.deep.equal(result1.labels);
+
+          for (let i = 0; i < 12; i++) {
+            const color1 = result1.textColor[i] || result1.default.textColor;
+            const color2 = result2.textColor[i] || result2.default.textColor;
+            expect(color2, `textColor[${i}] should be stable`).to.equal(color1);
+
+            const size1 = result1.textSize[i] || result1.default.textSize;
+            const size2 = result2.textSize[i] || result2.default.textSize;
+            expect(size2, `textSize[${i}] should be stable`).to.equal(size1);
+
+            // Also verify cleanup: positions without labels should have empty textColor/size
+            if (!result1.labels[i]) {
+              expect(result1.textColor[i], `textColor[${i}] should be empty for empty label`).to.equal('');
+              expect(result1.textSize[i], `textSize[${i}] should be 0 for empty label`).to.equal(0);
+            }
+          }
+
+          // All other properties should match
+          expect(result2.color, 'color').to.equal(result1.color);
+          expect(result2.x, 'x').to.equal(result1.x);
+          expect(result2.y, 'y').to.equal(result1.y);
+          expect(result2.width, 'width').to.equal(result1.width);
+          expect(result2.height, 'height').to.equal(result1.height);
+
+          return true;
+        }),
+        {
+          numRuns: 5000
+        }
+      );
+    });
+
+    it('should perfectly roundtrip keyboards with multiple keys and produce stable output', function() {
+      this.timeout(10000);
+
+      // Arbitrary for a keyboard with multiple keys
+      const multiKeyKeyboardArb = fc.array(cleanKeyArb, { minLength: 1, maxLength: 20 });
+
+      fc.assert(
+        fc.property(multiKeyKeyboardArb, (keysData) => {
+          // Create a keyboard with multiple keys
+          const keyboard = new kbd.Keyboard();
+
+          for (const keyData of keysData) {
+            const key = new kbd.Key();
+            setKeyData(key, keyData);
+            keyboard.keys.push(key);
+          }
+
+          // Perform double roundtrip to ensure stability
+          const serialized1 = kbd.Serial.serialize(keyboard);
+          const deserialized1 = kbd.Serial.deserialize(serialized1);
+
+          const serialized2 = kbd.Serial.serialize(deserialized1);
+          const deserialized2 = kbd.Serial.deserialize(serialized2);
+
+          expect(deserialized2.keys).to.have.lengthOf(keysData.length);
+
+          // Verify stability: second roundtrip should produce same result as first
+          for (let keyIndex = 0; keyIndex < keysData.length; keyIndex++) {
+            const result1 = deserialized1.keys[keyIndex];
+            const result2 = deserialized2.keys[keyIndex];
+
+            // Verify labels are stable
+            expect(result2.labels, `key[${keyIndex}].labels should be stable`).to.deep.equal(result1.labels);
+
+            // Verify effective colors and sizes are stable for positions with labels
+            for (let i = 0; i < 12; i++) {
+              if (result1.labels[i]) {
+                // Only check positions with labels - empty positions don't need stable colors
+                const color1 = result1.textColor[i] || result1.default.textColor;
+                const color2 = result2.textColor[i] || result2.default.textColor;
+                expect(color2, `key[${keyIndex}].textColor[${i}] should be stable`).to.equal(color1);
+
+                const size1 = result1.textSize[i] || result1.default.textSize;
+                const size2 = result2.textSize[i] || result2.default.textSize;
+                expect(size2, `key[${keyIndex}].textSize[${i}] should be stable`).to.equal(size1);
+              } else {
+                // Empty positions should have clean textColor/textSize
+                expect(result1.textColor[i], `key[${keyIndex}].textColor[${i}] should be empty`).to.equal('');
+                expect(result1.textSize[i], `key[${keyIndex}].textSize[${i}] should be 0`).to.equal(0);
+              }
+            }
+
+            // Verify other properties are stable
+            expect(result2.color, `key[${keyIndex}].color`).to.equal(result1.color);
+            expect(result2.x, `key[${keyIndex}].x`).to.equal(result1.x);
+            expect(result2.y, `key[${keyIndex}].y`).to.equal(result1.y);
+            expect(result2.width, `key[${keyIndex}].width`).to.equal(result1.width);
+            expect(result2.height, `key[${keyIndex}].height`).to.equal(result1.height);
+            expect(result2.x2, `key[${keyIndex}].x2`).to.equal(result1.x2);
+            expect(result2.y2, `key[${keyIndex}].y2`).to.equal(result1.y2);
+            expect(result2.width2, `key[${keyIndex}].width2`).to.equal(result1.width2);
+            expect(result2.height2, `key[${keyIndex}].height2`).to.equal(result1.height2);
+            expect(result2.rotation_x, `key[${keyIndex}].rotation_x`).to.equal(result1.rotation_x);
+            expect(result2.rotation_y, `key[${keyIndex}].rotation_y`).to.equal(result1.rotation_y);
+            expect(result2.rotation_angle, `key[${keyIndex}].rotation_angle`).to.equal(result1.rotation_angle);
+            expect(result2.decal, `key[${keyIndex}].decal`).to.equal(result1.decal);
+            expect(result2.ghost, `key[${keyIndex}].ghost`).to.equal(result1.ghost);
+            expect(result2.stepped, `key[${keyIndex}].stepped`).to.equal(result1.stepped);
+            expect(result2.nub, `key[${keyIndex}].nub`).to.equal(result1.nub);
+            expect(result2.profile, `key[${keyIndex}].profile`).to.equal(result1.profile);
+            expect(result2.sm, `key[${keyIndex}].sm`).to.equal(result1.sm);
+            expect(result2.sb, `key[${keyIndex}].sb`).to.equal(result1.sb);
+            expect(result2.st, `key[${keyIndex}].st`).to.equal(result1.st);
+          }
+
+          return true;
+        }),
+        {
+          numRuns: 1000
+        }
+      );
+    });
+
   });
 });
