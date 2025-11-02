@@ -3,8 +3,14 @@
 [![CI](https://github.com/adamws/kle-serial2/actions/workflows/ci.yml/badge.svg)](https://github.com/adamws/kle-serial2/actions/workflows/ci.yml)
 [![GitHub](https://img.shields.io/github/license/adamws/kle-serial2.svg)](LICENSE)
 
+> [!IMPORTANT]
+> This fork introduced significant changes in `Key` class.
+> It also changed semantics of default key color handling in serialized minified format
+> and fixed some other bugs.
+
 This is a [MIT-licensed](LICENSE) javascript library for parsing the serialized
-format used on keyboard-layout-editor.com (KLE) and converting it into something
+format used on ~~keyboard-layout-editor.com (KLE)~~ https://editor.keyboard-tools.xyz (kle-ng)
+and converting it into something
 that is easier to understand and use in third-party applications.
 
 KLE is frequently used to prototype and generate a rough keyboard layout, that
@@ -72,7 +78,7 @@ class Keyboard {
 }
 ```
 
-A `Keyboard` is an object containg keyboard metadata (`meta`) and an array of
+A `Keyboard` is an object containing keyboard metadata (`meta`) and an array of
 `keys`.
 
 ### Keyboard Metadata
@@ -106,8 +112,7 @@ class KeyboardMetadata {
   - Appears in the editor, below the keyboard.
   - Identifies the keyboard among your saved layouts.
   - Used to generate a filename when downloading or rendering the keyboard.
-- `notes` — notes about the keyboard layout, in
-  [GitHub-flavored Markdown](https://github.github.com/gfm/).
+- `notes` — notes about the keyboard layout
 - `radii` — the radii of the keyboard corners, in
   [CSS `border-radius` format](https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius),
   e.g., `20px`.
@@ -122,11 +127,13 @@ class KeyboardMetadata {
 Each key in the `keys` array contains the following data:
 
 ```ts
+export type Array12<T> = [T, T, T, T, T, T, T, T, T, T, T, T];
+
 export class Key {
   color: string;
-  labels: string[];
-  textColor: Array<string | undefined>;
-  textSize: Array<number | undefined>;
+  labels: Array12<string>;
+  textColor: Array12<string>;
+  textSize: Array12<number>;
   default: { textColor: string; textSize: number };
 
   x: number;
@@ -163,16 +170,16 @@ export class Key {
     - ![label order illustration](images/label-order.png)
   - The labels are user input, and may contain arbitrary HTML content; when
     rendering, input sanitization is recommended for security purposes.
-- `textColor` — an array of up to 12 colors (e.g., `"#ff0000"`), to be used for
-  the text labels; if any entries are `null` or `undefined`, you should use the
-  `default.textColor`.
-- `textSize` — an array of up to 12 sizes (integers 1-9), to be used for the
-  text labels; if any entries are `null` or `undefined`, you should use the
-  `default.textSize`.
+- `textColor` — an array of 12 colors (e.g., `"#ff0000"`), to be used for
+  the text labels; if any entries are `null`, `undefined` or `""` (empty string),
+  you should use the `default.textColor`.
+- `textSize` — an array of 12 sizes (integers 1-9), to be used for the
+  text labels; if any entries are `null`, `undefined` or less or equal `0`,
+  you should use the `default.textSize`.
   - Note that the sizes are relative and do not correspond to any fixed font
     size.
   - KLE uses the following formula when rendering on-screen:
-    - (6px + 2px \* _textSize_)
+    - `(6px + 2px \* _textSize_)`
 - `default.textColor` / `default.textSize` — the default text color / size.
 - `x` / `y` — the absolute position of the key in keyboard units (where _1u_ is
   the size of a standard 1x1 keycap).
@@ -258,28 +265,6 @@ In the new format:
 - Ignore the `ta` property (lose per-label color details)
 
 This is an acceptable trade-off for a cleaner, more maintainable format.
-
-## Future Work
-
-In rough order of priority:
-
-1. This library is _based_ on the original KLE code, but it has been converted
-   to a TypeScript and modularized to make it convenient for others to consume;
-   the KLE site itself is not yet using this actual code.
-   - So the first order of business is to update KLE to use this exact NPM
-     module.
-   - That will ensure that the code is correct, and that nothing has been
-     missed, as well as guarantee that the two projects are kept in sync.
-2. ~~This library currently only handles _deserialization_; the serialization code
-   still needs to be ported.~~ Both serialization and deserialization are now implemented.
-3. ~~More tests (particularly on the serialization side, once it's ported; it's
-   much more error-prone than deserialization).~~ Comprehensive test coverage has been added for both serialization and deserialization.
-4. Migrate some of the supporting data from KLE to this project, so you don't
-   have to look it up elsewhere, e.g.:
-   - Switch mount / brand / type definitions.
-   - Color palettes.
-5. Migrate HTML key rendering templates (and supporting stylesheets) from KLE to
-   this project, so anyone can render a key identically to KLE.
 
 ## Tests
 
