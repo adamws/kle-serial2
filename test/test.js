@@ -1046,7 +1046,7 @@ describe("serialization", function () {
   it("should properly handle first key at y=-1", function () {
     var keyboard = new kbd.Keyboard();
     var key = new kbd.Key();
-    key.labels = "A";
+    key.labels[0] = "A";
     key.y = -1;
     keyboard.keys.push(key);
     var serialized = kbd.Serial.serialize(keyboard);

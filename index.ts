@@ -59,26 +59,6 @@ export class Keyboard {
 }
 
 export module Serial {
-  // Helper to copy an object; doesn't handle loops/circular refs, etc.
-  function copy(o: any): any {
-    if (typeof o !== "object") {
-      return o; // primitive value
-    } else if (o instanceof Array) {
-      var result: any[] = [];
-      for (var i = 0; i < o.length; i++) {
-        result[i] = copy(o[i]);
-      }
-      return result;
-    } else {
-      var oresult: object = Object.create(Object.getPrototypeOf(o));
-      oresult.constructor();
-      for (var prop in o) {
-        oresult[prop] = copy(o[prop]);
-      }
-      return oresult;
-    }
-  }
-
   // Helper to create a 12-element array filled with a default value
   function createArray12<T>(defaultValue: T): Array12<T> {
     return Array(12).fill(defaultValue) as Array12<T>;
@@ -102,7 +82,12 @@ export module Serial {
   function reorderLabelsIn(labels, align, defaultval) {
     var ret = createArray12(defaultval);
     for (var i = 0; i < labels.length; ++i) {
-      if (labels[i]) ret[labelMap[align][i]] = labels[i];
+      if (labels[i]) {
+        const index = labelMap[align][i];
+        if (index !== -1) {
+          ret[index] = labels[i];
+        }
+      }
     }
     return ret;
   }
@@ -157,7 +142,13 @@ export module Serial {
         for (var k = 0; k < rows[r].length; ++k) {
           var item = rows[r][k];
           if (typeof item === "string") {
-            var newKey: Key = copy(current);
+            var newKey: Key = {
+              ...current,
+              labels: [...current.labels],
+              textColor: [...current.textColor],
+              textSize: [...current.textSize],
+              default: { ...current.default },
+            };
 
             // Calculate some generated values
             newKey.width2 =
@@ -386,7 +377,14 @@ export module Serial {
     for (const k of kbd.keys) {
       let props = {};
 
-      const key = structuredClone(k);
+      // Lightweight clone: shallow copy + clone only the arrays we'll mutate
+      // Much faster than structuredClone for property tests with thousands of iterations
+      const key = {
+        ...k,
+        labels: [...k.labels],
+        textColor: [...k.textColor],
+        textSize: [...k.textSize],
+      };
 
       const add_prop = (name: string, value: any, def: any) => {
         if (value !== def) {
