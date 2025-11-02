@@ -165,7 +165,16 @@ export module Serial {
             newKey.height2 =
               newKey.height2 === 0 ? current.height : current.height2;
             newKey.labels = reorderLabelsIn(item.split("\n"), align, "");
-            newKey.textSize = reorderLabelsIn(newKey.textSize, align, 0);
+            // textSize is already in normalized format (from f/f2/fa), don't reorder it
+            // textColor is also already normalized, don't reorder it
+
+            // Clean up: set textSize/textColor to 0/"" for positions without labels
+            for (var i = 0; i < 12; ++i) {
+              if (!newKey.labels[i]) {
+                newKey.textSize[i] = 0;
+                newKey.textColor[i] = "";
+              }
+            }
 
             // Add the key!
             kbd.keys.push(newKey);
@@ -203,9 +212,16 @@ export module Serial {
               current.default.textSize = item.f;
               current.textSize = createArray12(0);
             }
-            if (item.f2)
-              for (var i = 1; i < 12; ++i) current.textSize[i] = item.f2;
-            if (item.fa) current.textSize = item.fa;
+            if (item.f2) {
+              // f2 applies to serialized positions 1-11, need to reorder to normalized format
+              var tempTextSize = createArray12(current.default.textSize);
+              for (var i = 1; i < 12; ++i) tempTextSize[i] = item.f2;
+              current.textSize = reorderLabelsIn(tempTextSize, align, 0);
+            }
+            if (item.fa) {
+              // fa is in serialized format, need to reorder to normalized format
+              current.textSize = reorderLabelsIn(item.fa, align, 0);
+            }
             // Clean up textSize values that equal the default to enable serialization optimization
             if (item.f || item.f2 || item.fa) {
               for (var j = 0; j < 12; ++j) {

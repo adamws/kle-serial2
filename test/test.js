@@ -564,9 +564,24 @@ describe("deserialization", function() {
         ]);
         expect(result, name).to.be.an.instanceOf(kbd.Keyboard);
         expect(result.keys, name).to.have.length(1);
+
+        // Validation: textSize should only have numeric array indices (0-11), no string keys
+        var textSizeKeys = Object.keys(result.keys[0].textSize);
+        expect(textSizeKeys, `${name} textSize keys length`).to.have.length(12);
+        for (var k = 0; k < textSizeKeys.length; k++) {
+          var key = textSizeKeys[k];
+          var keyInt = parseInt(key);
+          expect(keyInt, `${name} key ${key} is integer`).to.equal(keyInt);
+          expect(keyInt, `${name} key ${key} >= 0`).to.be.at.least(0);
+          expect(keyInt, `${name} key ${key} <= 11`).to.be.at.most(11);
+        }
+
         // All labels should be 2, except the first one ('0')
         for (var i = 0; i < 12; ++i) {
           var name_i = `${name} [${i}]`;
+          // Validation: all textSize values should be numbers
+          expect(typeof result.keys[0].textSize[i], name_i).to.equal('number');
+
           if (result.keys[0].labels[i]) {
             var expected = result.keys[0].labels[i] === "0" ? 1 : 2;
             if (result.keys[0].labels[i] === "0") {
@@ -594,8 +609,22 @@ describe("deserialization", function() {
         expect(result, name).to.be.an.instanceOf(kbd.Keyboard);
         expect(result.keys, name).to.have.length(1);
 
+        // Validation: textSize should only have numeric array indices (0-11), no string keys
+        var textSizeKeys = Object.keys(result.keys[0].textSize);
+        expect(textSizeKeys, `${name} textSize keys length`).to.have.length(12);
+        for (var k = 0; k < textSizeKeys.length; k++) {
+          var key = textSizeKeys[k];
+          var keyInt = parseInt(key);
+          expect(keyInt, `${name} key ${key} is integer`).to.equal(keyInt);
+          expect(keyInt, `${name} key ${key} >= 0`).to.be.at.least(0);
+          expect(keyInt, `${name} key ${key} <= 11`).to.be.at.most(11);
+        }
+
         for (var i = 0; i < 12; ++i) {
           var name_i = `${name} [${i}]`;
+          // Validation: all textSize values should be numbers
+          expect(typeof result.keys[0].textSize[i], name_i).to.equal('number');
+
           if (result.keys[0].labels[i]) {
             expect(result.keys[0].textSize[i], name_i).to.equal(
               parseInt(result.keys[0].labels[i])
@@ -646,6 +675,38 @@ describe("deserialization", function() {
       expect(result.keys[1].textSize[6]).to.equal(0);
       expect(result.keys[2].labels[6]).to.equal("3");
       expect(result.keys[2].textSize[6]).to.equal(2);
+    });
+
+    it("should use `fa` when both `f2` and `fa` are defined (fa takes precedence)", function() {
+      var result = kbd.Serial.deserialize([
+        [{ f: 1, f2: 5, fa: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] }, "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11"]
+      ]);
+      expect(result).to.be.an.instanceOf(kbd.Keyboard);
+      expect(result.keys).to.have.length(1);
+
+      // Validation: textSize should only have numeric array indices (0-11), no string keys
+      var textSizeKeys = Object.keys(result.keys[0].textSize);
+      expect(textSizeKeys).to.have.length(12);
+      for (var k = 0; k < textSizeKeys.length; k++) {
+        var key = textSizeKeys[k];
+        var keyInt = parseInt(key);
+        expect(keyInt).to.equal(keyInt);
+        expect(keyInt).to.be.at.least(0);
+        expect(keyInt).to.be.at.most(11);
+      }
+
+      // fa should be used, not f2
+      // fa values are in serialized format and will be reordered by alignment (default is 4)
+      for (var i = 0; i < 12; ++i) {
+        expect(typeof result.keys[0].textSize[i]).to.equal('number');
+        if (result.keys[0].labels[i]) {
+          // Each label position should have the font size from fa, not f2 (5)
+          var labelIndex = parseInt(result.keys[0].labels[i]);
+          expect(result.keys[0].textSize[i]).to.equal(labelIndex + 2);
+        } else {
+          expect(result.keys[0].textSize[i]).to.equal(0);
+        }
+      }
     });
 
     it("should remove trailing empty values in `fa`", function() {
@@ -751,6 +812,24 @@ describe("deserialization", function() {
       var serialized = kbd.Serial.serialize(result);
       var expected = [[{f:2,fa:[0,4,4]}, "A\nB\nC", {fa:[3,0,5,6]}, "D\nE\nF\nG"]];
       expect(serialized).to.deep.equal(expected);
+    });
+
+    it("should handle mixed f and f2", function() {
+      var input = [[{f:1,f2:2},"\nA"]]
+      var result = kbd.Serial.deserialize(input);
+      expect(result).to.be.an.instanceOf(kbd.Keyboard);
+      expect(result.keys).to.have.length(1);
+      expect(result.keys[0].default.textSize).to.equal(1);
+      expect(result.keys[0].textSize[6]).to.equal(2);
+
+      // Validation: all textSize values should be numbers
+      for (var i = 0; i < 12; i++) {
+        expect(typeof result.keys[0].textSize[i]).to.equal('number');
+        if (i != 6) {
+          // no text at [i]; textSize should be 0
+          expect(result.keys[0].textSize[i]).to.equal(0);
+        }
+      }
     });
 
     it("should handle profile and nub combinations", function() {
