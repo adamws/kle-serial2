@@ -1,7 +1,7 @@
 {
   "name": "@adamws/kle-serial",
   "version": "0.17.1",
-  "description": "Serialization library for keyboard-layout-editor.com",
+  "description": "Serialization library for editor.keyboard-tools.xyz",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -16,6 +16,7 @@
   },
   "keywords": [
     "kle",
+    "kle-ng",
     "keyboard-layout-editor",
     "serialization",
     "json"
