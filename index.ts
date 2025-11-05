@@ -224,7 +224,7 @@ export module Serial {
             if ("p" in item) current.profile = item.p;
             if (item.c) current.color = item.c;
             // Handle text color: 't' for default, 'ta' for per-label array
-            if (item.t) {
+            if ("t" in item) {
               if (item.t.indexOf("\n") === -1) {
                 // New format: 't' is just the default color (single value)
                 current.default.textColor = item.t;
@@ -250,7 +250,7 @@ export module Serial {
                 }
               }
             }
-            if (item.ta) {
+            if ("ta" in item) {
               // New format: 'ta' is per-label colors (newline-delimited string)
               var taSplit = item.ta.split("\n");
               current.textColor = reorderLabelsIn(taSplit, align, "");
@@ -387,7 +387,25 @@ export module Serial {
       };
 
       const add_prop = (name: string, value: any, def: any) => {
-        if (value !== def) {
+        let different = false;
+
+        if (Array.isArray(value) && Array.isArray(def)) {
+          if (value.length != def.length) {
+            different = true;
+          } else {
+            for (let i = 0; i < value.length; ++i) {
+              if (value[i] !== def[i]) {
+                different = true;
+                break;
+              }
+            }
+          }
+        } else {
+          if (value !== def) {
+            different = true;
+          }
+        }
+        if (different) {
           props[name] = value;
         }
         return value;
@@ -455,34 +473,21 @@ export module Serial {
 
       current.color = add_prop("c", key.color, current.color);
 
-      // Serialize text color: 't' for default, 'ta' for per-label colors
+      // Output 't' when default changes
+      current.default.textColor = add_prop(
+        "t",
+        key.default.textColor,
+        current.default.textColor,
+      );
+
+      // Output 'ta' when per-label colors exist
       let textColor = reorderLabelsKle(key.textColor, alignment, "");
-
-      // Optimization: if only one color at position 0, treat it as new default
-      if (textColor.length === 1 && textColor[0]) {
-        current.default.textColor = add_prop(
-          "t",
-          textColor[0],
-          current.default.textColor,
-        );
-      } else {
-        // Normal case: output 't' when default changes
-        current.default.textColor = add_prop(
-          "t",
-          key.default.textColor,
-          current.default.textColor,
-        );
-
-        // Output 'ta' when per-label colors exist
-        if (textColor.length > 0) {
-          let textColorStr = textColor.join("\n").replace(/\n+$/, "");
-          current_textColor_str = add_prop(
-            "ta",
-            textColorStr,
-            current_textColor_str,
-          );
-        }
-      }
+      let textColorStr = textColor.join("\n").replace(/\n+$/, "");
+      current_textColor_str = add_prop(
+        "ta",
+        textColorStr,
+        current_textColor_str,
+      );
 
       current.ghost = add_prop("g", key.ghost, current.ghost);
       current.profile = add_prop("p", key.profile, current.profile);
@@ -490,32 +495,21 @@ export module Serial {
       current.sb = add_prop("sb", key.sb, current.sb);
       current.st = add_prop("st", key.st, current.st);
       current_alignment = add_prop("a", alignment, current_alignment);
+
+      // Output 'f' when default changes
       current.default.textSize = add_prop(
         "f",
         key.default.textSize,
         current.default.textSize,
       );
-      if (props["f"]) {
-        current_textSize_arr = [];
-      }
 
+      // Output 'fa' when per-label size exist
       let textSize = reorderLabelsKle(key.textSize, alignment, 0);
       while (textSize.length > 0 && textSize[textSize.length - 1] === 0) {
         // remove trailing 0 values
         textSize.pop();
       }
-      if (textSizeChanged(current_textSize_arr, textSize)) {
-        if (textSize.length === 0) {
-          current.default.textSize = add_prop(
-            "f",
-            key.default.textSize,
-            current.default.textSize,
-          );
-          current_textSize_arr = [];
-        } else {
-          current_textSize_arr = add_prop("fa", textSize, current_textSize_arr);
-        }
-      }
+      current_textSize_arr = add_prop("fa", textSize, current_textSize_arr);
 
       add_prop("w", key.width, 1);
       add_prop("h", key.height, 1);

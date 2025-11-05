@@ -454,17 +454,29 @@ describe("deserialization", function () {
       });
 
       it("should handle propagation for new format", function () {
-        var input = [[{ ta: "\n#ff0000" }, "1\n1", "1\n1"]];
+        var input = [
+          [
+            { ta: "\n#ff0000" },
+            "1\n1",
+            "1\n1",
+            { ta: "#00ff00\n\n\n#0000ff" },
+            "A\nB\n\nD",
+          ],
+        ];
         var result = kbd.Serial.deserialize(input);
         expect(result).to.be.an.instanceOf(kbd.Keyboard);
-        expect(result.keys).to.have.length(2);
+        expect(result.keys).to.have.length(3);
         expect(result.keys[0].default.textColor).to.equal("#000000");
         expect(result.keys[1].default.textColor).to.equal("#000000");
+        expect(result.keys[2].default.textColor).to.equal("#000000");
         expect(result.keys[0].textColor[0]).to.equal("");
         expect(result.keys[1].textColor[0]).to.equal("");
+        expect(result.keys[2].textColor[0]).to.equal("#00ff00");
         // With default alignment (4): KLE pos 1→internal 6
         expect(result.keys[0].textColor[6]).to.equal("#ff0000");
         expect(result.keys[1].textColor[6]).to.equal("#ff0000");
+        expect(result.keys[2].textColor[6]).to.equal("");
+        expect(result.keys[2].textColor[8]).to.equal("#0000ff");
         var serialized = kbd.Serial.serialize(result);
         expect(serialized).to.deep.equal(input);
       });
@@ -509,6 +521,24 @@ describe("deserialization", function () {
           );
           expect(hasPerLabelColor, name).to.be.true;
         }
+      });
+
+      it("should stop propagation with empty `ta`", function () {
+        var result = kbd.Serial.deserialize([
+          [{ ta: "#00ff00\n#00ffff" }, "A\nB", { ta: "" }, "C\nD"],
+        ]);
+        expect(result).to.be.an.instanceOf(kbd.Keyboard);
+        expect(result.keys).to.have.length(2);
+        expect(result.keys[0].labels[0]).to.equal("A");
+        expect(result.keys[0].labels[6]).to.equal("B");
+        expect(result.keys[1].labels[0]).to.equal("C");
+        expect(result.keys[1].labels[6]).to.equal("D");
+        expect(result.keys[0].default.textColor).to.equal("#000000");
+        expect(result.keys[0].textColor[0]).to.equal("#00ff00");
+        expect(result.keys[0].textColor[6]).to.equal("#00ffff");
+        expect(result.keys[1].default.textColor).to.equal("#000000");
+        expect(result.keys[1].textColor[0]).to.equal("");
+        expect(result.keys[1].textColor[6]).to.equal("");
       });
     });
   });
@@ -766,6 +796,24 @@ describe("deserialization", function () {
       var expected = [[{ a: 5, fa: [4] }, "X\nX\n\n\n\n\nX"]];
       expect(serialized).to.deep.equal(expected);
     });
+
+    it("should stop propagation with empty `fa`", function () {
+      var result = kbd.Serial.deserialize([
+        [{ fa: [5, 6] }, "A\nB", { fa: [] }, "C\nD"],
+      ]);
+      expect(result).to.be.an.instanceOf(kbd.Keyboard);
+      expect(result.keys).to.have.length(2);
+      expect(result.keys[0].labels[0]).to.equal("A");
+      expect(result.keys[0].labels[6]).to.equal("B");
+      expect(result.keys[1].labels[0]).to.equal("C");
+      expect(result.keys[1].labels[6]).to.equal("D");
+      expect(result.keys[0].default.textSize).to.equal(3);
+      expect(result.keys[0].textSize[0]).to.equal(5);
+      expect(result.keys[0].textSize[6]).to.equal(6);
+      expect(result.keys[1].default.textSize).to.equal(3);
+      expect(result.keys[1].textSize[0]).to.equal(0);
+      expect(result.keys[1].textSize[6]).to.equal(0);
+    });
   });
 
   describe("edge cases and advanced scenarios", function () {
@@ -973,67 +1021,17 @@ describe("serialization", function () {
   it("should not care so much about matching elements", function () {
     var keyboard = new kbd.Keyboard();
     var key = new kbd.Key();
-    key.labels = [
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      "x",
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-    ];
+    // prettier-ignore
+    key.labels = [ undefined, undefined, undefined, undefined, "x", undefined, undefined, undefined, undefined, undefined, undefined, undefined];
     // all these variants should yield same result
+    // prettier-ignore
     var textColors = [
       [undefined, undefined, undefined, undefined, "#ff0000"],
-      [
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        "#ff0000",
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-      ],
-      [
-        "#000000",
-        "#000000",
-        "#000000",
-        "#000000",
-        "#ff0000",
-        "#000000",
-        "#000000",
-        "#000000",
-        "#000000",
-        "#000000",
-        "#000000",
-        "#000000",
-      ],
-      [
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        "#ff0000",
-        "#000000",
-        "#000000",
-        "#000000",
-        "#000000",
-        "#000000",
-        "#000000",
-        "#000000",
-      ],
+      [undefined, undefined, undefined, undefined, "#ff0000", undefined, undefined, undefined, undefined, undefined, undefined, undefined],
+      ["#000000", "#000000", "#000000", "#000000", "#ff0000", "#000000", "#000000", "#000000", "#000000", "#000000", "#000000", "#000000"],
+      [undefined, undefined, undefined, undefined, "#ff0000", "#000000", "#000000", "#000000", "#000000", "#000000", "#000000", "#000000"],
     ];
-    var expected = [[{ t: "#ff0000", a: 7 }, "x"]];
+    var expected = [[{ ta: "#ff0000", a: 7 }, "x"]];
 
     for (var i = 0; i < textColors.length; ++i) {
       key.textColor = textColors[i];
@@ -1041,6 +1039,68 @@ describe("serialization", function () {
       var serialized = kbd.Serial.serialize(keyboard);
       expect(serialized).to.deep.equal(expected);
     }
+  });
+
+  it("should prevent size propagation when serializing", function () {
+    var keyboard = new kbd.Keyboard();
+    var key1 = new kbd.Key();
+    key1.labels[0] = "A";
+    key1.labels[6] = "B";
+    key1.textSize[6] = 8;
+    keyboard.keys.push(key1);
+
+    var key2 = new kbd.Key();
+    key2.x = 1;
+    key2.labels[0] = "C";
+    key2.labels[6] = "D";
+    keyboard.keys.push(key2);
+
+    var expected = [[{ fa: [0, 8] }, "A\nB", { fa: [] }, "C\nD"]];
+
+    var serialized = kbd.Serial.serialize(keyboard);
+    expect(serialized).to.deep.equal(expected);
+
+    var deserialized = kbd.Serial.deserialize(serialized);
+    expect(deserialized).to.be.an.instanceOf(kbd.Keyboard);
+    expect(deserialized.keys).to.have.length(2);
+    expect(deserialized.keys[0].default.textSize).to.equal(3);
+    expect(deserialized.keys[0].textSize[0]).to.equal(0);
+    expect(deserialized.keys[0].textSize[6]).to.equal(8);
+
+    expect(deserialized.keys[1].default.textSize).to.equal(3);
+    expect(deserialized.keys[1].textSize[0]).to.equal(0);
+    expect(deserialized.keys[1].textSize[6]).to.equal(0);
+  });
+
+  it("should prevent color propagation when serializing", function () {
+    var keyboard = new kbd.Keyboard();
+    var key1 = new kbd.Key();
+    key1.labels[0] = "A";
+    key1.labels[6] = "B";
+    key1.textColor[6] = "#ff0000";
+    keyboard.keys.push(key1);
+
+    var key2 = new kbd.Key();
+    key2.x = 1;
+    key2.labels[0] = "C";
+    key2.labels[6] = "D";
+    keyboard.keys.push(key2);
+
+    var expected = [[{ ta: "\n#ff0000" }, "A\nB", { ta: "" }, "C\nD"]];
+
+    var serialized = kbd.Serial.serialize(keyboard);
+    expect(serialized).to.deep.equal(expected);
+
+    var deserialized = kbd.Serial.deserialize(serialized);
+    expect(deserialized).to.be.an.instanceOf(kbd.Keyboard);
+    expect(deserialized.keys).to.have.length(2);
+    expect(deserialized.keys[0].default.textColor).to.equal("#000000");
+    expect(deserialized.keys[0].textColor[0]).to.equal("");
+    expect(deserialized.keys[0].textColor[6]).to.equal("#ff0000");
+
+    expect(deserialized.keys[1].default.textColor).to.equal("#000000");
+    expect(deserialized.keys[1].textColor[0]).to.equal("");
+    expect(deserialized.keys[1].textColor[6]).to.equal("");
   });
 
   it("should properly handle first key at y=-1", function () {
