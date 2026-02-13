@@ -23,7 +23,7 @@ versions. As a result, third-party parsing implementations aren't always 100%
 compatible with KLE itself, particularly with respect to certain corner-cases or
 older / deprecated properties.
 
-This library is the same code that KLE itself uses to parse serialized layouts,
+This library is the same code that ~~KLE~~ kle-ng itself uses to parse serialized layouts,
 so by using it, you can be sure that you are 100% compatible with the editor.
 
 ## Installation
@@ -160,6 +160,8 @@ export class Key {
   sm: string; // switch mount
   sb: string; // switch brand
   st: string; // switch type
+  switchRotation: number; // switch rotation, since v0.19
+  stabRotation: number; // stabilizer rotation, since v0.19
 }
 ```
 
@@ -216,6 +218,11 @@ export class Key {
   - Currently supported / known rows: `R1`, `R2`, `R3`, `R4`, `R5`, `SPACE`
 - `sm` / `sb` / `st` — the switch _mount_, _brand_, and _type_, overriding the
   default values specified in the keyboard metadata.
+- **Added in release v0.19.0**:
+  - `switchRotation` — the rotation angle of the switch (default `0`). Serialized
+    as `_r` in the compact format.
+  - `stabRotation` — the rotation angle of the stabilizer (default `0`). Serialized
+    as `_rs` in the compact format.
 
 ## Text Color Format Changes (v0.18+)
 
@@ -265,6 +272,18 @@ In the new format:
 - Ignore the `ta` property (lose per-label color details)
 
 This is an acceptable trade-off for a cleaner, more maintainable format.
+
+## Manufacturing Properties (v0.19+)
+
+Starting with version 0.19, the `Key` defines `switchRotation` (`_r`) and `stabRotation` (`_rs`) properties.
+These have been popularized by plate generators: http://builder.swillkb.com/ ([github](https://github.com/swill/kad)) and
+https://kbplate.ai03.com/ ([github](https://github.com/ai03-2725/yet-another-keyboard-builder)).
+
+Do not confuse `switchRotation` with `rotation_x` / `rotation_y` / `rotation_angle`.
+The latter define key position, while `switchRotation` defines the mounting orientation of a physical switch.
+
+The correctness of values is not checked. For example, specifying `stabRotation` for a 1U key
+is legal although it does not make practical sense.
 
 ## Tests
 

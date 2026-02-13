@@ -245,6 +245,52 @@ describe("deserialization", function () {
       var serialized3 = kbd.Serial.serialize(result3);
       expect(serialized3).to.deep.equal(input3);
     });
+
+    it("should propagate and reset switchRotation", function () {
+      var input = [["1", { _r: 90 }, "2", "3", { _r: 0 }, "4"]];
+      var result = kbd.Serial.deserialize(input);
+      expect(result).to.be.an.instanceOf(kbd.Keyboard);
+      expect(result.keys).to.have.length(4);
+      expect(result.keys[0].switchRotation, "_r_0").to.equal(0);
+      expect(result.keys[1].switchRotation, "_r_1").to.equal(90);
+      expect(result.keys[2].switchRotation, "_r_2").to.equal(90);
+      expect(result.keys[3].switchRotation, "_r_3").to.equal(0);
+      var serialized = kbd.Serial.serialize(result);
+      expect(serialized).to.deep.equal(input);
+    });
+
+    it("should propagate and reset stabRotation", function () {
+      var input = [["1", { _rs: 180 }, "2", "3", { _rs: 0 }, "4"]];
+      var result = kbd.Serial.deserialize(input);
+      expect(result).to.be.an.instanceOf(kbd.Keyboard);
+      expect(result.keys).to.have.length(4);
+      expect(result.keys[0].stabRotation, "_rs_0").to.equal(0);
+      expect(result.keys[1].stabRotation, "_rs_1").to.equal(180);
+      expect(result.keys[2].stabRotation, "_rs_2").to.equal(180);
+      expect(result.keys[3].stabRotation, "_rs_3").to.equal(0);
+      var serialized = kbd.Serial.serialize(result);
+      expect(serialized).to.deep.equal(input);
+    });
+
+    it("should handle switchRotation and stabRotation together", function () {
+      var input = [[{ _r: 90, _rs: -180 }, "1", { _r: 270 }, "2"]];
+      var result = kbd.Serial.deserialize(input);
+      expect(result).to.be.an.instanceOf(kbd.Keyboard);
+      expect(result.keys).to.have.length(2);
+      expect(result.keys[0].switchRotation).to.equal(90);
+      expect(result.keys[0].stabRotation).to.equal(-180);
+      expect(result.keys[1].switchRotation).to.equal(270);
+      expect(result.keys[1].stabRotation).to.equal(-180); // stabRotation propagates
+      var serialized = kbd.Serial.serialize(result);
+      expect(serialized).to.deep.equal(input);
+    });
+
+    it("should default switchRotation and stabRotation to 0", function () {
+      var input = [["A"]];
+      var result = kbd.Serial.deserialize(input);
+      expect(result.keys[0].switchRotation).to.equal(0);
+      expect(result.keys[0].stabRotation).to.equal(0);
+    });
   });
 
   describe("of text color", function () {
@@ -880,6 +926,33 @@ describe("deserialization", function () {
       expect(serialized).to.deep.equal(input);
     });
 
+    it("should handle switch properties with rotation values", function () {
+      var input = [
+        [
+          { sm: "cherry", _r: 90, _rs: 180 },
+          "A",
+          { _r: 270 },
+          "B",
+          { sm: "alps", _rs: 0 },
+          "C",
+        ],
+      ];
+      var result = kbd.Serial.deserialize(input);
+      expect(result).to.be.an.instanceOf(kbd.Keyboard);
+      expect(result.keys).to.have.length(3);
+      expect(result.keys[0].sm).to.equal("cherry");
+      expect(result.keys[0].switchRotation).to.equal(90);
+      expect(result.keys[0].stabRotation).to.equal(180);
+      expect(result.keys[1].sm).to.equal("cherry"); // sm propagates
+      expect(result.keys[1].switchRotation).to.equal(270); // overridden
+      expect(result.keys[1].stabRotation).to.equal(180); // propagates
+      expect(result.keys[2].sm).to.equal("alps"); // overridden
+      expect(result.keys[2].switchRotation).to.equal(270); // propagates
+      expect(result.keys[2].stabRotation).to.equal(0); // reset
+      var serialized = kbd.Serial.serialize(result);
+      expect(serialized).to.deep.equal(input);
+    });
+
     it("should handle keyboard metadata", function () {
       var input = [
         {
@@ -1272,6 +1345,8 @@ describe("properties", () => {
           sm: profileArb,
           sb: profileArb,
           st: profileArb,
+          switchRotation: rotationArb,
+          stabRotation: rotationArb,
         });
       });
     });
@@ -1302,6 +1377,8 @@ describe("properties", () => {
       key.sm = keyData.sm;
       key.sb = keyData.sb;
       key.st = keyData.st;
+      key.switchRotation = keyData.switchRotation;
+      key.stabRotation = keyData.stabRotation;
     };
 
     it("should perfectly roundtrip single key with clean properties", function () {
@@ -1367,6 +1444,12 @@ describe("properties", () => {
           expect(result.sm, "sm").to.equal(key.sm);
           expect(result.sb, "sb").to.equal(key.sb);
           expect(result.st, "st").to.equal(key.st);
+          expect(result.switchRotation, "switchRotation").to.equal(
+            key.switchRotation,
+          );
+          expect(result.stabRotation, "stabRotation").to.equal(
+            key.stabRotation,
+          );
 
           return true;
         }),
@@ -1751,6 +1834,14 @@ describe("properties", () => {
             expect(result2.sm, `key[${keyIndex}].sm`).to.equal(result1.sm);
             expect(result2.sb, `key[${keyIndex}].sb`).to.equal(result1.sb);
             expect(result2.st, `key[${keyIndex}].st`).to.equal(result1.st);
+            expect(
+              result2.switchRotation,
+              `key[${keyIndex}].switchRotation`,
+            ).to.equal(result1.switchRotation);
+            expect(
+              result2.stabRotation,
+              `key[${keyIndex}].stabRotation`,
+            ).to.equal(result1.stabRotation);
           }
 
           return true;

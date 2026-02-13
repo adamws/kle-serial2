@@ -29,6 +29,8 @@ export class Key {
   sm: string = ""; // switch mount
   sb: string = ""; // switch brand
   st: string = ""; // switch type
+  switchRotation: number = 0; // switch rotation
+  stabRotation: number = 0; // stabilizer rotation
 
   constructor() {
     // Initialize all arrays to 12 elements
@@ -276,6 +278,8 @@ export module Serial {
             if ("sm" in item) current.sm = item.sm;
             if ("sb" in item) current.sb = item.sb;
             if ("st" in item) current.st = item.st;
+            if ("_r" in item) current.switchRotation = item._r;
+            if ("_rs" in item) current.stabRotation = item._rs;
           }
         }
 
@@ -494,6 +498,8 @@ export module Serial {
       current.sm = add_prop("sm", key.sm, current.sm);
       current.sb = add_prop("sb", key.sb, current.sb);
       current.st = add_prop("st", key.st, current.st);
+      current.switchRotation = add_prop("_r", key.switchRotation, current.switchRotation);
+      current.stabRotation = add_prop("_rs", key.stabRotation, current.stabRotation);
       current_alignment = add_prop("a", alignment, current_alignment);
 
       // Output 'f' when default changes
